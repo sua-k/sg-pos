@@ -1,15 +1,510 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
+// prisma/schema.prisma
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+}
+
+// ── ENUMS ────────────────────────────────────────
+
+enum Role {
+  admin
+  manager
+  staff
+}
+
+enum IdType {
+  national_id
+  passport
+}
+
+enum StrainType {
+  indica
+  sativa
+  hybrid
+}
+
+enum TransactionStatus {
+  completed
+  voided
+  refunded
+}
+
+enum PaymentMethod {
+  cash
+  card
+  transfer
+}
+
+enum SyncDirection {
+  push
+  pull
+}
+
+enum SyncStatus {
+  success
+  error
+  pending
+}
+
+enum ReconciliationStatus {
+  pending_review
+  accepted
+  rejected
+  auto_matched
+}
+
+enum TransferStatus {
+  requested
+  approved
+  dispatched
+  received
+  confirmed
+  cancelled
+}
+
+enum ReportType {
+  self_use
+  sell
+  research
+  process
+  export_abroad
+}
+
+enum StockAdjustmentReason {
+  received
+  damaged
+  correction
+  waste
+  transfer_out
+  transfer_in
+}
+
+enum PurchaseStatus {
+  draft
+  confirmed
+  received
+  cancelled
+}
+
+enum ProfessionType {
+  medical
+  thai_traditional
+  thai_applied
+  dental
+  pharmacy
+  chinese_medicine
+  folk_healer
+}
+
+// ── MODELS ───────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  authUserId    String    @unique @map("auth_user_id")
+  email         String    @unique
+  name          String
+  role          Role      @default(staff)
+  branchId      String    @map("branch_id")
+  branch        Branch    @relation(fields: [branchId], references: [id])
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  transactions  Transaction[]
+  cashSessions  CashSession[]
+  purchases     Purchase[]
+  initiatedTransfers  StockTransfer[] @relation("InitiatedBy")
+  approvedTransfers   StockTransfer[] @relation("ApprovedBy")
+
+  @@map("users")
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users         User[]
+  inventory     Inventory[]
+  cashSessions  CashSession[]
+  prescriptions Prescription[]
+  transfersFrom StockTransfer[] @relation("TransferFrom")
+  transfersTo   StockTransfer[] @relation("TransferTo")
+  transactions  Transaction[]
+  costLayers    CostLayer[]
+  purchases     Purchase[]
+
+  @@map("branches")
+}
+
+model Product {
+  id               String     @id @default(cuid())
+  name             String
+  strainType       StrainType? @map("strain_type")
+  sku              String     @unique
+  priceTHB         Decimal    @map("price_thb") @db.Decimal(10, 2)
+  pricePerGram     Decimal?   @map("price_per_gram") @db.Decimal(10, 2)
+  costTHB          Decimal?   @map("cost_thb") @db.Decimal(10, 2)
+  costPerGram      Decimal?   @map("cost_per_gram") @db.Decimal(10, 2)
+  costVatIncluded  Boolean    @default(true) @map("cost_vat_included")
+  soldByWeight     Boolean    @default(false) @map("sold_by_weight")
+  description      String?
+  thcPercentage    Decimal?   @map("thc_percentage") @db.Decimal(5, 2)
+  cbdPercentage    Decimal?   @map("cbd_percentage") @db.Decimal(5, 2)
+  expiryDate       DateTime?  @map("expiry_date") @db.Date
+  batchNumber      String?    @map("batch_number")
+  weightPerUnit    Decimal?   @map("weight_per_unit_grams") @db.Decimal(10, 3)
+  categoryId       String?    @map("category_id")
+  category         Category?  @relation(fields: [categoryId], references: [id])
+  supplierId       String?    @map("supplier_id")
+  supplier         Supplier?  @relation(fields: [supplierId], references: [id])
+  zohoItemId       String?    @map("zoho_item_id")
+  imageUrl         String?    @map("image_url")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  inventory        Inventory[]
+  transactionItems TransactionItem[]
+  stockAdjustments StockAdjustment[]
+  stockTransfers   StockTransfer[]
+  purchaseItems    PurchaseItem[]
+  costLayers       CostLayer[]
+
+  @@map("products")
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  soldByWeight Boolean @default(false) @map("sold_by_weight")
+  products Product[]
+  @@map("categories")
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  licenseNo   String?  @map("license_no")
+  contactName String?  @map("contact_name")
+  phone       String?
+  email       String?
+  address     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  products    Product[]
+  purchases   Purchase[]
+  @@map("suppliers")
+}
+
+model Inventory {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id])
+  branchId  String  @map("branch_id")
+  branch    Branch  @relation(fields: [branchId], references: [id])
+  quantity  Decimal @db.Decimal(10, 3)
+  room      String  @default("Shelf")
+
+  @@unique([productId, branchId])
+  @@map("inventory")
+}
+
+model StockAdjustment {
+  id        String                @id @default(cuid())
+  productId String                @map("product_id")
+  product   Product               @relation(fields: [productId], references: [id])
+  branchId  String                @map("branch_id")
+  quantity  Decimal               @db.Decimal(10, 3)
+  reason    StockAdjustmentReason
+  notes     String?
+  userId    String                @map("user_id")
+  createdAt DateTime              @default(now()) @map("created_at")
+
+  @@map("stock_adjustments")
+}
+
+model CostLayer {
+  id                String       @id @default(cuid())
+  productId         String       @map("product_id")
+  product           Product      @relation(fields: [productId], references: [id])
+  branchId          String       @map("branch_id")
+  branch            Branch       @relation(fields: [branchId], references: [id])
+  purchaseItemId    String?      @map("purchase_item_id")
+  purchaseItem      PurchaseItem? @relation(fields: [purchaseItemId], references: [id])
+  quantityInitial   Decimal      @map("quantity_initial") @db.Decimal(10, 3)
+  quantityRemaining Decimal      @map("quantity_remaining") @db.Decimal(10, 3)
+  unitCostTHB       Decimal      @map("unit_cost_thb") @db.Decimal(10, 2)
+  receivedAt        DateTime     @map("received_at")
+  batchNumber       String?      @map("batch_number")
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  consumptions CostLayerConsumption[]
+
+  @@index([productId, branchId, receivedAt])
+  @@map("cost_layers")
+}
+
+model CostLayerConsumption {
+  id                String          @id @default(cuid())
+  costLayerId       String          @map("cost_layer_id")
+  costLayer         CostLayer       @relation(fields: [costLayerId], references: [id])
+  transactionItemId String          @map("transaction_item_id")
+  transactionItem   TransactionItem @relation(fields: [transactionItemId], references: [id])
+  quantity          Decimal         @db.Decimal(10, 3)
+  unitCostTHB       Decimal         @map("unit_cost_thb") @db.Decimal(10, 2)
+  totalCostTHB      Decimal         @map("total_cost_thb") @db.Decimal(10, 2)
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@map("cost_layer_consumptions")
+}
+
+model Purchase {
+  id            String         @id @default(cuid())
+  supplierId    String         @map("supplier_id")
+  supplier      Supplier       @relation(fields: [supplierId], references: [id])
+  branchId      String         @map("branch_id")
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  invoiceNumber String?        @map("invoice_number")
+  subtotalTHB   Decimal        @map("subtotal_thb") @db.Decimal(10, 2)
+  vatRate       Decimal        @default(7.00) @map("vat_rate") @db.Decimal(5, 2)
+  vatTHB        Decimal        @map("vat_thb") @db.Decimal(10, 2)
+  totalTHB      Decimal        @map("total_thb") @db.Decimal(10, 2)
+  vatIncluded   Boolean        @default(true) @map("vat_included")
+  status        PurchaseStatus @default(draft)
+  notes         String?
+  purchaseDate  DateTime       @default(now()) @map("purchase_date")
+  userId        String         @map("user_id")
+  user          User           @relation(fields: [userId], references: [id])
+  zohoPOId      String?        @map("zoho_po_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  items         PurchaseItem[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id           String   @id @default(cuid())
+  purchaseId   String   @map("purchase_id")
+  purchase     Purchase @relation(fields: [purchaseId], references: [id])
+  productId    String   @map("product_id")
+  product      Product  @relation(fields: [productId], references: [id])
+  quantity     Decimal  @db.Decimal(10, 3)
+  unitCostTHB  Decimal  @map("unit_cost_thb") @db.Decimal(10, 2)
+  subtotalTHB  Decimal  @map("subtotal_thb") @db.Decimal(10, 2)
+  vatTHB       Decimal  @map("vat_thb") @db.Decimal(10, 2)
+  totalTHB     Decimal  @map("item_total_thb") @db.Decimal(10, 2)
+  weightGrams  Decimal? @map("weight_grams") @db.Decimal(10, 3)
+  expiryDate   DateTime? @map("expiry_date") @db.Date
+  batchNumber  String?  @map("batch_number")
+
+  costLayers   CostLayer[]
+
+  @@map("purchase_items")
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  idNumber     String   @map("id_number")
+  idType       IdType   @map("id_type")
+  name         String?
+  dateOfBirth  DateTime @map("date_of_birth") @db.Date
+  nationality  String?
+  phone        String?
+  email        String?
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  transactions  Transaction[]
+  prescriptions Prescription[]
+
+  @@unique([idNumber, idType])
+  @@map("customers")
+}
+
+model Prescription {
+  id              String   @id @default(cuid())
+  customerId      String   @map("customer_id")
+  customer        Customer @relation(fields: [customerId], references: [id])
+  prescriptionNo  String   @unique @map("prescription_no")
+  prescriberId    String?  @map("prescriber_id")
+  prescriber      Prescriber? @relation(fields: [prescriberId], references: [id])
+  issuedDate      DateTime @map("issued_date") @db.Date
+  expiryDate      DateTime @map("expiry_date") @db.Date
+  dailyDosageG    Decimal? @map("daily_dosage_grams") @db.Decimal(5, 2)
+  numDays         Int?     @map("num_days")
+  totalAllowedG   Decimal? @map("total_allowed_grams") @db.Decimal(8, 2)
+  consumedG       Decimal  @default(0) @map("consumed_grams") @db.Decimal(8, 2)
+  diagnosis       String?
+  documentUrl     String?  @map("document_url")
+  pt33PdfUrl      String?  @map("pt33_pdf_url")
+  createdInPos    Boolean  @default(false) @map("created_in_pos")
+  branchId        String   @map("branch_id")
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  transactionPrescriptions TransactionPrescription[]
+
+  @@map("prescriptions")
+}
+
+model Prescriber {
+  id              String          @id @default(cuid())
+  name            String
+  licenseNo       String          @unique @map("license_no")
+  licenseType     String?         @map("license_type")
+  professionType  ProfessionType  @map("profession_type")
+  address         String?
+  phone           String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  prescriptions Prescription[]
+
+  @@map("prescribers")
+}
+
+model Transaction {
+  id             String            @id @default(cuid())
+  customerId     String            @map("customer_id")
+  customer       Customer          @relation(fields: [customerId], references: [id])
+  userId         String            @map("user_id")
+  user           User              @relation(fields: [userId], references: [id])
+  branchId       String            @map("branch_id")
+  branch         Branch            @relation(fields: [branchId], references: [id])
+  subtotalTHB    Decimal           @map("subtotal_thb") @db.Decimal(10, 2)
+  vatRate        Decimal           @default(7.00) @map("vat_rate") @db.Decimal(5, 2)
+  vatTHB         Decimal           @map("vat_thb") @db.Decimal(10, 2)
+  totalTHB       Decimal           @map("total_thb") @db.Decimal(10, 2)
+  vatIncluded    Boolean           @default(true) @map("vat_included")
+  status         TransactionStatus @default(completed)
+  paymentMethod  PaymentMethod     @map("payment_method")
+  reportType     ReportType        @default(sell) @map("report_type")
+  receiptNumber  String            @unique @map("receipt_number")
+  ageVerified    Boolean           @default(false) @map("age_verified")
+  customerAge    Int?              @map("customer_age")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  items          TransactionItem[]
+  prescriptions  TransactionPrescription[]
+
+  @@map("transactions")
+}
+
+model TransactionItem {
+  id            String  @id @default(cuid())
+  transactionId String  @map("transaction_id")
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  productId     String  @map("product_id")
+  product       Product @relation(fields: [productId], references: [id])
+  quantity      Decimal @db.Decimal(10, 3)
+  unitPriceTHB  Decimal @map("unit_price_thb") @db.Decimal(10, 2)
+  subtotalTHB   Decimal @map("subtotal_thb") @db.Decimal(10, 2)
+  vatTHB        Decimal @map("vat_thb") @db.Decimal(10, 2)
+  totalTHB      Decimal @map("item_total_thb") @db.Decimal(10, 2)
+  weightGrams   Decimal? @map("weight_grams") @db.Decimal(10, 3)
+  pricePerGram  Decimal? @map("price_per_gram") @db.Decimal(10, 2)
+  scaleReading  Decimal? @map("scale_reading") @db.Decimal(10, 3)
+  cogsTHB       Decimal  @default(0) @map("cogs_thb") @db.Decimal(10, 2)
+
+  costConsumptions CostLayerConsumption[]
+
+  @@map("transaction_items")
+}
+
+model TransactionPrescription {
+  transactionId  String      @map("transaction_id")
+  transaction    Transaction @relation(fields: [transactionId], references: [id])
+  prescriptionId String      @map("prescription_id")
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+
+  @@id([transactionId, prescriptionId])
+  @@map("transaction_prescriptions")
+}
+
+model CashSession {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id])
+  branchId      String    @map("branch_id")
+  branch        Branch    @relation(fields: [branchId], references: [id])
+  deviceName    String?   @map("device_name")
+  openingFloat  Decimal   @map("opening_float") @db.Decimal(10, 2)
+  closingFloat  Decimal?  @map("closing_float") @db.Decimal(10, 2)
+  expectedCash  Decimal?  @map("expected_cash") @db.Decimal(10, 2)
+  actualCash    Decimal?  @map("actual_cash") @db.Decimal(10, 2)
+  discrepancy   Decimal?  @db.Decimal(10, 2)
+  openedAt      DateTime  @default(now()) @map("opened_at")
+  closedAt      DateTime? @map("closed_at")
+
+  @@map("cash_sessions")
+}
+
+model StockTransfer {
+  id             String         @id @default(cuid())
+  fromBranchId   String         @map("from_branch_id")
+  fromBranch     Branch         @relation("TransferFrom", fields: [fromBranchId], references: [id])
+  toBranchId     String         @map("to_branch_id")
+  toBranch       Branch         @relation("TransferTo", fields: [toBranchId], references: [id])
+  productId      String         @map("product_id")
+  product        Product        @relation(fields: [productId], references: [id])
+  quantity       Decimal        @db.Decimal(10, 3)
+  weightGrams    Decimal?       @map("weight_grams") @db.Decimal(10, 3)
+  status         TransferStatus @default(requested)
+  initiatedById  String         @map("initiated_by")
+  initiatedBy    User           @relation("InitiatedBy", fields: [initiatedById], references: [id])
+  approvedById   String?        @map("approved_by")
+  approvedBy     User?          @relation("ApprovedBy", fields: [approvedById], references: [id])
+  notes          String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  completedAt    DateTime?      @map("completed_at")
+
+  @@map("stock_transfers")
+}
+
+// ── ZOHO & RECONCILIATION ────────────────────────
+
+model ZohoSyncLog {
+  id         String        @id @default(cuid())
+  entityType String        @map("entity_type")
+  entityId   String        @map("entity_id")
+  direction  SyncDirection
+  status     SyncStatus
+  errorMsg   String?       @map("error_msg")
+  syncedAt   DateTime      @default(now()) @map("synced_at")
+
+  @@map("zoho_sync_log")
+}
+
+model BankTransaction {
+  id                String   @id @default(cuid())
+  zohoTransactionId String   @unique @map("zoho_transaction_id")
+  date              DateTime @db.Date
+  description       String
+  amountTHB         Decimal  @map("amount_thb") @db.Decimal(12, 2)
+  type              String
+  reconciled        Boolean  @default(false)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  matches ReconciliationMatch[]
+
+  @@map("bank_transactions")
+}
+
+model ReconciliationMatch {
+  id                String               @id @default(cuid())
+  bankTransactionId String               @map("bank_transaction_id")
+  bankTransaction   BankTransaction      @relation(fields: [bankTransactionId], references: [id])
+  invoiceId         String               @map("invoice_id")
+  confidenceScore   Decimal              @map("confidence_score") @db.Decimal(4, 3)
+  status            ReconciliationStatus @default(pending_review)
+  aiReasoning       String?              @map("ai_reasoning")
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  @@map("reconciliation_matches")
 }
