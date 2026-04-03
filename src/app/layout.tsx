@@ -2,9 +2,12 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import { Geist } from "next/font/google";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geistSans = localFont({
+  src: "./fonts/GeistVF.woff",
+  variable: "--font-sans",
+  weight: "100 900",
+});
 
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
@@ -37,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th" className={cn("font-sans", geist.variable)}>
+    <html lang="th" className={cn("font-sans", geistSans.variable)}>
       <body className={cn("antialiased", geistMono.variable)}>
         {children}
       </body>
