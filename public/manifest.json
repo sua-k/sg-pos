@@ -1,0 +1,16 @@
+{
+  "name": "SG POS",
+  "short_name": "SG POS",
+  "description": "Cannabis Dispensary Point of Sale",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#18181b",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

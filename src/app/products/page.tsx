@@ -1,21 +1,21 @@
 import { AppShell } from "@/components/layout/AppShell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { LayoutDashboard } from "lucide-react"
+import { Package } from "lucide-react"
 
-export default function DashboardPage() {
+export default function ProductsPage() {
   return (
     <AppShell>
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-              <LayoutDashboard className="h-6 w-6 text-muted-foreground" />
+              <Package className="h-6 w-6 text-muted-foreground" />
             </div>
-            <CardTitle className="mt-4">Dashboard</CardTitle>
+            <CardTitle className="mt-4">Products</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              Coming Soon — Sales overview, low-stock alerts, and daily stats will appear here.
+              Coming Soon — Product management, inventory tracking, and batch management will appear here.
             </p>
           </CardContent>
         </Card>
