@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -14,11 +14,13 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useState } from "react"
+import { useAuth } from "@/components/providers/AuthProvider"
 
 interface NavItem {
   label: string
@@ -44,7 +46,15 @@ const futureNav: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, signOut } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
+
+  async function handleSignOut() {
+    await signOut()
+    router.push("/login")
+    router.refresh()
+  }
 
   return (
     <aside
@@ -106,19 +116,33 @@ export function Sidebar() {
       <div className="border-t p-3">
         {!collapsed && (
           <div className="mb-2 px-2">
-            <p className="text-xs text-muted-foreground">Branch</p>
-            <p className="text-sm font-medium truncate">Siam Green - Main</p>
-            <p className="text-xs text-muted-foreground mt-1">Staff</p>
+            <p className="text-sm font-medium truncate">
+              {user?.email ?? "—"}
+            </p>
+            <p className="text-xs text-muted-foreground capitalize mt-0.5">
+              {user?.role ?? "—"}
+            </p>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-full h-10"
-          onClick={() => setCollapsed(!collapsed)}
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="flex-1 h-10"
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 text-muted-foreground hover:text-destructive"
+            onClick={handleSignOut}
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </aside>
   )
