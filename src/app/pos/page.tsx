@@ -1,40 +1,225 @@
+"use client"
+
+import { useState, useCallback } from "react"
 import { AppShell } from "@/components/layout/AppShell"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShoppingCart } from "lucide-react"
+import { ProductGrid } from "@/components/pos/ProductGrid"
+import { Cart, CartItem } from "@/components/pos/Cart"
+import { CustomerEntry, CustomerData } from "@/components/pos/CustomerEntry"
+import { PaymentPanel } from "@/components/pos/PaymentPanel"
+import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/components/providers/AuthProvider"
+import { toast } from "sonner"
+import { FileText } from "lucide-react"
+
+type PaymentMethodType = "cash" | "card" | "transfer"
 
 export default function POSPage() {
+  const { user } = useAuth()
+  const branchId = user?.branchId ?? ""
+
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [customer, setCustomer] = useState<CustomerData | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const handleAddToCart = useCallback(
+    (
+      product: { id: string; name: string; priceTHB: number; pricePerGram: number | null; soldByWeight: boolean },
+      quantity: number,
+      weightGrams?: number
+    ) => {
+      setCartItems((prev) => {
+        // For weight-based, always add a new line (different weighings)
+        if (product.soldByWeight && weightGrams) {
+          const ppg = product.pricePerGram ?? 0
+          return [
+            ...prev,
+            {
+              productId: product.id,
+              name: product.name,
+              quantity: 1,
+              unitPrice: weightGrams * ppg,
+              weightGrams,
+              pricePerGram: ppg,
+              soldByWeight: true,
+              lineTotal: Math.round(weightGrams * ppg * 100) / 100,
+            },
+          ]
+        }
+
+        // For fixed-price: increment quantity if already in cart
+        const existing = prev.find(
+          (item) => item.productId === product.id && !item.soldByWeight
+        )
+        if (existing) {
+          return prev.map((item) =>
+            item.productId === product.id && !item.soldByWeight
+              ? {
+                  ...item,
+                  quantity: item.quantity + quantity,
+                  lineTotal:
+                    Math.round(
+                      (item.quantity + quantity) * item.unitPrice * 100
+                    ) / 100,
+                }
+              : item
+          )
+        }
+
+        return [
+          ...prev,
+          {
+            productId: product.id,
+            name: product.name,
+            quantity,
+            unitPrice: product.priceTHB,
+            soldByWeight: false,
+            lineTotal: Math.round(quantity * product.priceTHB * 100) / 100,
+          },
+        ]
+      })
+    },
+    []
+  )
+
+  const handleUpdateQuantity = useCallback(
+    (productId: string, delta: number) => {
+      setCartItems((prev) =>
+        prev
+          .map((item) => {
+            if (item.productId !== productId || item.soldByWeight) return item
+            const newQty = item.quantity + delta
+            if (newQty <= 0) return null
+            return {
+              ...item,
+              quantity: newQty,
+              lineTotal: Math.round(newQty * item.unitPrice * 100) / 100,
+            }
+          })
+          .filter(Boolean) as CartItem[]
+      )
+    },
+    []
+  )
+
+  const handleRemoveItem = useCallback((productId: string) => {
+    setCartItems((prev) => prev.filter((item) => item.productId !== productId))
+  }, [])
+
+  async function handleCompleteSale() {
+    if (!customer || !paymentMethod || cartItems.length === 0 || !branchId) return
+    if (!customer.isMinimumAge) {
+      toast.error("Customer must be at least 20 years old")
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const apiItems = cartItems.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        ...(item.soldByWeight && item.weightGrams
+          ? { weightGrams: item.weightGrams, pricePerGram: item.pricePerGram }
+          : {}),
+      }))
+
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: customer.id,
+          branchId,
+          items: apiItems,
+          paymentMethod,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error || "Checkout failed")
+        return
+      }
+
+      const transaction = await res.json()
+
+      // Success: clear cart, show receipt number
+      setCartItems([])
+      setCustomer(null)
+      setPaymentMethod(null)
+
+      toast.success(`Sale complete! Receipt: ${transaction.receiptNumber}`, {
+        duration: 5000,
+      })
+    } catch {
+      toast.error("Checkout failed. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const canComplete =
+    !!customer &&
+    customer.isMinimumAge &&
+    cartItems.length > 0 &&
+    !!paymentMethod &&
+    !loading
+
   return (
     <AppShell>
       <div className="flex h-full gap-4">
-        {/* Left pane — Product grid (60%) */}
-        <div className="flex-[3] rounded-lg border border-dashed border-border p-6">
-          <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-              <ShoppingCart className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div className="text-center">
-              <h2 className="text-lg font-semibold">Product Grid</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Product search and selection will appear here.
+        {/* Left Side (60%) — Product Grid */}
+        <div className="flex flex-[3] flex-col overflow-hidden rounded-lg border p-4">
+          {branchId ? (
+            <ProductGrid branchId={branchId} onAddToCart={handleAddToCart} />
+          ) : (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-sm text-muted-foreground">
+                Loading branch...
               </p>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Right pane — Cart (40%) */}
-        <div className="flex-[2] rounded-lg border border-dashed border-border p-6">
-          <div className="flex flex-col items-center justify-center h-full gap-4">
-            <Card className="w-full max-w-xs text-center">
-              <CardHeader>
-                <CardTitle className="text-base">Cart</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  POS Checkout — Coming Soon
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Right Side (40%) — Cart + Customer + Payment */}
+        <div className="flex flex-[2] flex-col overflow-hidden rounded-lg border p-4">
+          {/* Customer Entry */}
+          <CustomerEntry
+            onCustomerSelected={setCustomer}
+            customer={customer}
+          />
+
+          <Separator className="my-3" />
+
+          {/* Cart Items + Totals */}
+          <Cart
+            items={cartItems}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveItem}
+          />
+
+          <Separator className="my-3" />
+
+          {/* Prescription stub */}
+          <Button
+            variant="outline"
+            className="mb-3 h-11 w-full"
+            disabled
+            title="Coming in Phase 2"
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            Link Prescription
+          </Button>
+
+          {/* Payment Panel */}
+          <PaymentPanel
+            onSelectPayment={setPaymentMethod}
+            onCompleteSale={handleCompleteSale}
+            selectedMethod={paymentMethod}
+            disabled={!canComplete}
+            loading={loading}
+          />
         </div>
       </div>
     </AppShell>
