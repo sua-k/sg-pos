@@ -6,8 +6,16 @@ import { ProductGrid } from "@/components/pos/ProductGrid"
 import { Cart, CartItem } from "@/components/pos/Cart"
 import { CustomerEntry, CustomerData } from "@/components/pos/CustomerEntry"
 import { PaymentPanel } from "@/components/pos/PaymentPanel"
+import { ReceiptPreview, type ReceiptData } from "@/components/pos/ReceiptPreview"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { useAuth } from "@/components/providers/AuthProvider"
 import { toast } from "sonner"
 import { FileText } from "lucide-react"
@@ -22,6 +30,10 @@ export default function POSPage() {
   const [customer, setCustomer] = useState<CustomerData | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Post-checkout receipt
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
+  const [receiptOpen, setReceiptOpen] = useState(false)
 
   const handleAddToCart = useCallback(
     (
@@ -144,7 +156,7 @@ export default function POSPage() {
 
       const transaction = await res.json()
 
-      // Success: clear cart, show receipt number
+      // Success: clear cart
       setCartItems([])
       setCustomer(null)
       setPaymentMethod(null)
@@ -152,6 +164,18 @@ export default function POSPage() {
       toast.success(`Sale complete! Receipt: ${transaction.receiptNumber}`, {
         duration: 5000,
       })
+
+      // Fetch and show receipt
+      try {
+        const receiptRes = await fetch(`/api/transactions/${transaction.id}/receipt`)
+        if (receiptRes.ok) {
+          const data: ReceiptData = await receiptRes.json()
+          setReceiptData(data)
+          setReceiptOpen(true)
+        }
+      } catch {
+        // Non-critical — receipt display failure should not block success
+      }
     } catch {
       toast.error("Checkout failed. Please try again.")
     } finally {
@@ -222,6 +246,23 @@ export default function POSPage() {
           />
         </div>
       </div>
+      {/* Post-checkout receipt dialog */}
+      <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
+        <DialogContent className="max-w-sm p-4">
+          <DialogHeader>
+            <DialogTitle>Sale Complete</DialogTitle>
+            <DialogDescription className="sr-only">
+              Receipt for completed transaction
+            </DialogDescription>
+          </DialogHeader>
+          {receiptData && (
+            <ReceiptPreview
+              receipt={receiptData}
+              onClose={() => setReceiptOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   )
 }
