@@ -78,7 +78,7 @@ export default function NewPrescriptionPage() {
 
   useEffect(() => {
     if (user?.branchId) {
-      setForm((prev) => ({ ...prev, branchId: prev.branchId || user.branchId ?? '' }))
+      setForm((prev) => ({ ...prev, branchId: prev.branchId || (user.branchId ?? '') }))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.branchId])

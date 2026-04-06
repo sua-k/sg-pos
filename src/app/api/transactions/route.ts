@@ -81,6 +81,7 @@ interface CheckoutBody {
   branchId: string
   items: CheckoutItem[]
   paymentMethod: 'cash' | 'card' | 'transfer'
+  prescriptionIds?: string[]
 }
 
 export async function POST(request: NextRequest) {
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth()
 
     const body: CheckoutBody = await request.json()
-    const { customerId, branchId, items, paymentMethod } = body
+    const { customerId, branchId, items, paymentMethod, prescriptionIds } = body
 
     if (!customerId || !branchId || !items?.length || !paymentMethod) {
       return NextResponse.json(
@@ -262,6 +263,54 @@ export async function POST(request: NextRequest) {
             user: { select: { id: true, name: true, email: true } },
           },
         })
+
+        // 7. Link prescriptions if provided
+        if (prescriptionIds && prescriptionIds.length > 0) {
+          // Calculate total cannabis weight sold (soldByWeight items only)
+          const totalWeightG = processedItems.reduce((sum, pi) => {
+            if (pi.weightGrams) {
+              return sum.plus(pi.weightGrams)
+            }
+            return sum
+          }, new Decimal(0))
+
+          for (const prescriptionId of prescriptionIds) {
+            const prescription = await tx.prescription.findUnique({
+              where: { id: prescriptionId },
+            })
+            if (!prescription) {
+              throw new Error(`VALIDATION:Prescription ${prescriptionId} not found`)
+            }
+            if (prescription.expiryDate < new Date()) {
+              throw new Error(`VALIDATION:Prescription ${prescription.prescriptionNo} is expired`)
+            }
+            if (prescription.totalAllowedG !== null) {
+              const remaining = new Decimal(prescription.totalAllowedG.toString()).minus(
+                new Decimal(prescription.consumedG.toString())
+              )
+              if (remaining.lt(totalWeightG)) {
+                throw new Error(
+                  `VALIDATION:Prescription ${prescription.prescriptionNo} has insufficient remaining allowance. Available: ${remaining.toFixed(2)}g, Required: ${totalWeightG.toFixed(2)}g`
+                )
+              }
+            }
+
+            await tx.transactionPrescription.create({
+              data: { transactionId: transaction.id, prescriptionId },
+            })
+
+            if (totalWeightG.gt(0)) {
+              await tx.prescription.update({
+                where: { id: prescriptionId },
+                data: {
+                  consumedG: {
+                    increment: totalWeightG.toNumber(),
+                  },
+                },
+              })
+            }
+          }
+        }
 
         return transaction
       },

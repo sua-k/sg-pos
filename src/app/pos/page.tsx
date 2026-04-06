@@ -28,6 +28,7 @@ export default function POSPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [customer, setCustomer] = useState<CustomerData | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType | null>(null)
+  const [linkedPrescriptions, setLinkedPrescriptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
   // Post-checkout receipt
@@ -144,6 +145,7 @@ export default function POSPage() {
           branchId,
           items: apiItems,
           paymentMethod,
+          prescriptionIds: linkedPrescriptions,
         }),
       })
 
@@ -159,6 +161,7 @@ export default function POSPage() {
       setCartItems([])
       setCustomer(null)
       setPaymentMethod(null)
+      setLinkedPrescriptions([])
 
       toast.success(`Sale complete! Receipt: ${transaction.receiptNumber}`, {
         duration: 5000,
@@ -224,8 +227,12 @@ export default function POSPage() {
 
           <Separator className="my-3" />
 
-          {/* Prescription link — enabled in Phase 2 */}
-          <PrescriptionLink customerId={customer?.id} />
+          {/* Prescription link */}
+          <PrescriptionLink
+            customerId={customer?.id}
+            disabled={!customer}
+            onLink={setLinkedPrescriptions}
+          />
 
           {/* Payment Panel */}
           <PaymentPanel
