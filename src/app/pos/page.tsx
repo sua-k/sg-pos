@@ -8,7 +8,6 @@ import { CustomerEntry, CustomerData } from "@/components/pos/CustomerEntry"
 import { PaymentPanel } from "@/components/pos/PaymentPanel"
 import { ReceiptPreview, type ReceiptData } from "@/components/pos/ReceiptPreview"
 import { Separator } from "@/components/ui/separator"
-import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -18,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { useAuth } from "@/components/providers/AuthProvider"
 import { toast } from "sonner"
-import { FileText } from "lucide-react"
+import { PrescriptionLink } from "@/components/pos/PrescriptionLink"
 
 type PaymentMethodType = "cash" | "card" | "transfer"
 
@@ -225,16 +224,8 @@ export default function POSPage() {
 
           <Separator className="my-3" />
 
-          {/* Prescription stub */}
-          <Button
-            variant="outline"
-            className="mb-3 h-11 w-full"
-            disabled
-            title="Coming in Phase 2"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Link Prescription
-          </Button>
+          {/* Prescription link — enabled in Phase 2 */}
+          <PrescriptionLink customerId={customer?.id} />
 
           {/* Payment Panel */}
           <PaymentPanel

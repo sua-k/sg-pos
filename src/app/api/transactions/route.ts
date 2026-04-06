@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
 import { Prisma } from '@prisma/client'
 import Decimal from 'decimal.js'
-import { backCalculateVAT } from '@/lib/utils/vat'
+import { calculateVAT } from '@/lib/utils/vat'
 import { consumeCostLayers } from '@/lib/utils/fifo'
 import { generateReceiptNumber } from '@/lib/utils/receipt-number'
 import { isMinimumAge, calculateAge } from '@/lib/utils/age'
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
           }
 
           // d. Back-calculate VAT per item
-          const vatBreakdown = backCalculateVAT(itemTotal)
+          const vatBreakdown = calculateVAT(itemTotal)
 
           // e. Consume FIFO cost layers
           const { consumptions, totalCogs } = await consumeCostLayers(

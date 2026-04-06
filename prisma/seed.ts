@@ -90,14 +90,301 @@ async function main() {
 
   // 10. Create 3 users (IMPORTANT: these are placeholders — real users will come from Supabase Auth)
   // Using placeholder authUserIds since we don't have Supabase Auth set up yet
-  await Promise.all([
+  const [adminUser] = await Promise.all([
     prisma.user.create({ data: { authUserId: 'placeholder-admin-001', email: 'admin@siamgreen.co', name: 'Admin User', role: 'admin', branchId: branches[0].id } }),
     prisma.user.create({ data: { authUserId: 'placeholder-manager-001', email: 'manager@siamgreen.co', name: 'Manager PP', role: 'manager', branchId: branches[0].id } }),
     prisma.user.create({ data: { authUserId: 'placeholder-staff-001', email: 'staff@siamgreen.co', name: 'Staff PP', role: 'staff', branchId: branches[0].id } }),
   ])
 
+  // 11. Create 5 sample transactions for PP branch
+  // VAT is inclusive at 7%: vat = total * 7 / 107, subtotal = total - vat
+  // All values rounded to 2 decimal places
+
+  // Fetch cost layers for FIFO consumption references (ordered same as products)
+  const costLayers = await Promise.all(
+    products.map((p) =>
+      prisma.costLayer.findFirst({ where: { productId: p.id, branchId: branches[0].id } })
+    )
+  )
+
+  // Tx 1: Somchai buys 2g OG Kush (cash) = 1000 THB
+  const tx1 = await prisma.transaction.create({
+    data: {
+      customerId: customers[0].id,
+      userId: adminUser.id,
+      branchId: branches[0].id,
+      receiptNumber: 'PP-20260406-0001',
+      status: 'completed',
+      paymentMethod: 'cash',
+      reportType: 'sell',
+      vatIncluded: true,
+      vatRate: 7,
+      subtotalTHB: 934.58,
+      vatTHB: 65.42,
+      totalTHB: 1000.00,
+      ageVerified: true,
+      customerAge: 35,
+      items: {
+        create: [
+          {
+            productId: products[0].id,
+            quantity: 2,
+            weightGrams: 2,
+            pricePerGram: 500,
+            unitPriceTHB: 500,
+            subtotalTHB: 934.58,
+            vatTHB: 65.42,
+            totalTHB: 1000.00,
+            cogsTHB: 500.00,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  })
+
+  if (costLayers[0]) {
+    await prisma.costLayerConsumption.create({
+      data: {
+        costLayerId: costLayers[0].id,
+        transactionItemId: tx1.items[0].id,
+        quantity: 2,
+        unitCostTHB: 250,
+        totalCostTHB: 500.00,
+      },
+    })
+  }
+
+  // Tx 2: Natthaya buys 1 CBD Brownie + 1 CBD Sparkling Water (card) = 300 THB
+  const tx2 = await prisma.transaction.create({
+    data: {
+      customerId: customers[1].id,
+      userId: adminUser.id,
+      branchId: branches[0].id,
+      receiptNumber: 'PP-20260406-0002',
+      status: 'completed',
+      paymentMethod: 'card',
+      reportType: 'sell',
+      vatIncluded: true,
+      vatRate: 7,
+      subtotalTHB: 280.37,
+      vatTHB: 19.63,
+      totalTHB: 300.00,
+      ageVerified: true,
+      customerAge: 40,
+      items: {
+        create: [
+          {
+            productId: products[6].id,
+            quantity: 1,
+            unitPriceTHB: 180,
+            subtotalTHB: 168.22,
+            vatTHB: 11.78,
+            totalTHB: 180.00,
+            cogsTHB: 80.00,
+          },
+          {
+            productId: products[8].id,
+            quantity: 1,
+            unitPriceTHB: 120,
+            subtotalTHB: 112.15,
+            vatTHB: 7.85,
+            totalTHB: 120.00,
+            cogsTHB: 50.00,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  })
+
+  if (costLayers[6]) {
+    await prisma.costLayerConsumption.create({
+      data: {
+        costLayerId: costLayers[6].id,
+        transactionItemId: tx2.items[0].id,
+        quantity: 1,
+        unitCostTHB: 80,
+        totalCostTHB: 80.00,
+      },
+    })
+  }
+  if (costLayers[8]) {
+    await prisma.costLayerConsumption.create({
+      data: {
+        costLayerId: costLayers[8].id,
+        transactionItemId: tx2.items[1].id,
+        quantity: 1,
+        unitCostTHB: 50,
+        totalCostTHB: 50.00,
+      },
+    })
+  }
+
+  // Tx 3: John buys 3g Blue Dream (cash) = 1350 THB
+  const tx3 = await prisma.transaction.create({
+    data: {
+      customerId: customers[2].id,
+      userId: adminUser.id,
+      branchId: branches[0].id,
+      receiptNumber: 'PP-20260406-0003',
+      status: 'completed',
+      paymentMethod: 'cash',
+      reportType: 'sell',
+      vatIncluded: true,
+      vatRate: 7,
+      subtotalTHB: 1261.68,
+      vatTHB: 88.32,
+      totalTHB: 1350.00,
+      ageVerified: true,
+      customerAge: 38,
+      items: {
+        create: [
+          {
+            productId: products[1].id,
+            quantity: 3,
+            weightGrams: 3,
+            pricePerGram: 450,
+            unitPriceTHB: 450,
+            subtotalTHB: 1261.68,
+            vatTHB: 88.32,
+            totalTHB: 1350.00,
+            cogsTHB: 660.00,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  })
+
+  if (costLayers[1]) {
+    await prisma.costLayerConsumption.create({
+      data: {
+        costLayerId: costLayers[1].id,
+        transactionItemId: tx3.items[0].id,
+        quantity: 3,
+        unitCostTHB: 220,
+        totalCostTHB: 660.00,
+      },
+    })
+  }
+
+  // Tx 4: Somchai buys 2x THC Gummies + 1 RAW Papers (transfer) = 780 THB
+  const tx4 = await prisma.transaction.create({
+    data: {
+      customerId: customers[0].id,
+      userId: adminUser.id,
+      branchId: branches[0].id,
+      receiptNumber: 'PP-20260406-0004',
+      status: 'completed',
+      paymentMethod: 'transfer',
+      reportType: 'sell',
+      vatIncluded: true,
+      vatRate: 7,
+      subtotalTHB: 728.97,
+      vatTHB: 51.03,
+      totalTHB: 780.00,
+      ageVerified: true,
+      customerAge: 35,
+      items: {
+        create: [
+          {
+            productId: products[5].id,
+            quantity: 2,
+            unitPriceTHB: 350,
+            subtotalTHB: 654.21,
+            vatTHB: 45.79,
+            totalTHB: 700.00,
+            cogsTHB: 300.00,
+          },
+          {
+            productId: products[9].id,
+            quantity: 1,
+            unitPriceTHB: 80,
+            subtotalTHB: 74.77,
+            vatTHB: 5.23,
+            totalTHB: 80.00,
+            cogsTHB: 35.00,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  })
+
+  if (costLayers[5]) {
+    await prisma.costLayerConsumption.create({
+      data: {
+        costLayerId: costLayers[5].id,
+        transactionItemId: tx4.items[0].id,
+        quantity: 2,
+        unitCostTHB: 150,
+        totalCostTHB: 300.00,
+      },
+    })
+  }
+  if (costLayers[9]) {
+    await prisma.costLayerConsumption.create({
+      data: {
+        costLayerId: costLayers[9].id,
+        transactionItemId: tx4.items[1].id,
+        quantity: 1,
+        unitCostTHB: 35,
+        totalCostTHB: 35.00,
+      },
+    })
+  }
+
+  // Tx 5: Natthaya buys 1g Sour Diesel (cash) = 550 THB
+  const tx5 = await prisma.transaction.create({
+    data: {
+      customerId: customers[1].id,
+      userId: adminUser.id,
+      branchId: branches[0].id,
+      receiptNumber: 'PP-20260406-0005',
+      status: 'completed',
+      paymentMethod: 'cash',
+      reportType: 'sell',
+      vatIncluded: true,
+      vatRate: 7,
+      subtotalTHB: 514.02,
+      vatTHB: 35.98,
+      totalTHB: 550.00,
+      ageVerified: true,
+      customerAge: 40,
+      items: {
+        create: [
+          {
+            productId: products[2].id,
+            quantity: 1,
+            weightGrams: 1,
+            pricePerGram: 550,
+            unitPriceTHB: 550,
+            subtotalTHB: 514.02,
+            vatTHB: 35.98,
+            totalTHB: 550.00,
+            cogsTHB: 280.00,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  })
+
+  if (costLayers[2]) {
+    await prisma.costLayerConsumption.create({
+      data: {
+        costLayerId: costLayers[2].id,
+        transactionItemId: tx5.items[0].id,
+        quantity: 1,
+        unitCostTHB: 280,
+        totalCostTHB: 280.00,
+      },
+    })
+  }
+
   console.log('Seed completed successfully!')
-  console.log(`Created: 5 branches, 6 categories, 2 suppliers, 10 products, inventory + cost layers for PP, 3 customers, 2 prescribers, 2 prescriptions, 3 users`)
+  console.log(`Created: 5 branches, 6 categories, 2 suppliers, 10 products, inventory + cost layers for PP, 3 customers, 2 prescribers, 2 prescriptions, 3 users, 5 transactions`)
 }
 
 main()

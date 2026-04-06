@@ -126,10 +126,7 @@ CREATE POLICY "stock_adjustments_select" ON public.stock_adjustments
   FOR SELECT TO authenticated
   USING (
     requesting_user_role() = 'admin'
-    OR EXISTS (
-      SELECT 1 FROM public.inventory i
-      WHERE i.id = inventory_id AND i.branch_id = requesting_branch_id()
-    )
+    OR branch_id = requesting_branch_id()
   );
 
 CREATE POLICY "stock_adjustments_modify" ON public.stock_adjustments
@@ -169,10 +166,7 @@ CREATE POLICY "purchases_select" ON public.purchases
   FOR SELECT TO authenticated
   USING (
     requesting_user_role() = 'admin'
-    OR EXISTS (
-      SELECT 1 FROM public.users u
-      WHERE u.id = received_by_id AND u.branch_id = requesting_branch_id()
-    )
+    OR branch_id = requesting_branch_id()
   );
 
 CREATE POLICY "purchases_modify" ON public.purchases
@@ -188,8 +182,7 @@ CREATE POLICY "purchase_items_select" ON public.purchase_items
     requesting_user_role() = 'admin'
     OR EXISTS (
       SELECT 1 FROM public.purchases p
-      JOIN public.users u ON u.id = p.received_by_id
-      WHERE p.id = purchase_id AND u.branch_id = requesting_branch_id()
+      WHERE p.id = purchase_id AND p.branch_id = requesting_branch_id()
     )
   );
 
