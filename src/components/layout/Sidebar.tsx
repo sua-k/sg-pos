@@ -6,11 +6,18 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Package,
-  Receipt,
+  Warehouse,
   Users,
-  ShieldCheck,
+  Receipt,
+  Stethoscope,
+  FileText,
+  ShoppingBag,
   ArrowLeftRight,
+  Banknote,
+  Shield,
   BarChart3,
+  Settings2,
+  Scale,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -21,27 +28,32 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useState } from "react"
 import { useAuth } from "@/components/providers/AuthProvider"
+import type { UserRole } from "@/types/auth"
 
 interface NavItem {
   label: string
   href: string
   icon: React.ElementType
-  disabled?: boolean
+  roles: UserRole[]
 }
 
-const mainNav: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "POS", href: "/pos", icon: ShoppingCart },
-  { label: "Products", href: "/products", icon: Package },
-  { label: "Transactions", href: "/transactions", icon: Receipt },
-  { label: "Customers", href: "/customers", icon: Users },
-]
-
-const futureNav: NavItem[] = [
-  { label: "Compliance", href: "/compliance", icon: ShieldCheck, disabled: true },
-  { label: "Transfers", href: "/transfers", icon: ArrowLeftRight, disabled: true },
-  { label: "Reports", href: "/reports", icon: BarChart3, disabled: true },
-  { label: "Settings", href: "/settings", icon: Settings, disabled: true },
+const NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", href: "/", icon: LayoutDashboard, roles: ["admin", "manager", "staff"] },
+  { label: "POS", href: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "staff"] },
+  { label: "Products", href: "/products", icon: Package, roles: ["admin", "manager"] },
+  { label: "Inventory", href: "/inventory", icon: Warehouse, roles: ["admin", "manager"] },
+  { label: "Customers", href: "/customers", icon: Users, roles: ["admin", "manager", "staff"] },
+  { label: "Transactions", href: "/transactions", icon: Receipt, roles: ["admin", "manager"] },
+  { label: "Prescribers", href: "/prescribers", icon: Stethoscope, roles: ["admin", "manager"] },
+  { label: "Prescriptions", href: "/prescriptions", icon: FileText, roles: ["admin", "manager", "staff"] },
+  { label: "Purchases", href: "/purchases", icon: ShoppingBag, roles: ["admin", "manager"] },
+  { label: "Transfers", href: "/transfers", icon: ArrowLeftRight, roles: ["admin", "manager"] },
+  { label: "Cash Drawers", href: "/cash-drawers", icon: Banknote, roles: ["admin", "manager", "staff"] },
+  { label: "Compliance", href: "/compliance", icon: Shield, roles: ["admin", "manager"] },
+  { label: "Analytics", href: "/analytics", icon: BarChart3, roles: ["admin", "manager"] },
+  { label: "Zoho", href: "/zoho", icon: Settings2, roles: ["admin"] },
+  { label: "Reconciliation", href: "/reconciliation", icon: Scale, roles: ["admin"] },
+  { label: "Settings", href: "/settings", icon: Settings, roles: ["admin"] },
 ]
 
 export function Sidebar() {
@@ -49,6 +61,12 @@ export function Sidebar() {
   const router = useRouter()
   const { user, signOut } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
+
+  const userRole = user?.role as UserRole | undefined
+
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => !userRole || item.roles.includes(userRole)
+  )
 
   async function handleSignOut() {
     await signOut()
@@ -75,10 +93,11 @@ export function Sidebar() {
 
       <Separator />
 
-      {/* Main nav */}
-      <nav className="flex-1 space-y-1 px-2 py-3">
-        {mainNav.map((item) => {
-          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto space-y-1 px-2 py-3">
+        {visibleItems.map((item) => {
+          const isActive =
+            item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
           return (
             <Link key={item.href} href={item.href}>
               <span
@@ -95,21 +114,6 @@ export function Sidebar() {
             </Link>
           )
         })}
-
-        <Separator className="my-3" />
-
-        {futureNav.map((item) => (
-          <span
-            key={item.href}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium min-h-[44px]",
-              "text-muted-foreground/50 cursor-not-allowed"
-            )}
-          >
-            <item.icon className="h-5 w-5 shrink-0" />
-            {!collapsed && item.label}
-          </span>
-        ))}
       </nav>
 
       {/* Bottom section */}
