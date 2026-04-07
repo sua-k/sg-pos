@@ -44,6 +44,9 @@
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
