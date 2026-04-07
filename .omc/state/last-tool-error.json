@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"SUPABASE_URL=\\\"https://uaprvjayxaotlacecrky.supabase.co\\\"\\nANON_KEY=\\\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhcHJ2amF5eGFvdGxhY2Vjcmt5Iiwicm9sZSI6ImFub24iL...",
-  "error": "Exit code 1\nTraceback (most recent call last):\n  File \"<stdin>\", line 13, in <module>\nKeyError: 'access_token'\n[rerun: b5]",
-  "timestamp": "2026-04-07T02:44:46.883Z",
-  "retry_count": 3
+  "tool_input_preview": "{\"command\":\"cd \\\"/Users/suaserver/Documents/Claude/Projects/SG POS/sg-pos\\\" && npx playwright test --reporter=list 2>&1\",\"timeout\":300000,\"description\":\"Run Playwright E2E tests\"}",
+  "error": "Exit code 1\n\nRunning 36 tests using 1 worker\n\n  ✓   1 [chromium] › tests/e2e/full-qa.spec.ts:17:7 › Authentication › login page loads (5.0s)\n  ✓   2 [chromium] › tests/e2e/full-qa.spec.ts:24:7 › Authentication › unauthenticated redirects to login (453ms)\n  ✓   3 [chromium] › tests/e2e/full-qa.spec.ts:30:7 › Authentication › login with valid credentials (5.4s)\n  ✓   4 [chromium] › tests/e2e/full-qa.spec.ts:37:7 › Authentication › user info displays after login (3.2s)\n  ✓   5 [chromium] › tests/e2...",
+  "timestamp": "2026-04-07T09:20:06.669Z",
+  "retry_count": 1
 }
