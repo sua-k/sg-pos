@@ -22,7 +22,7 @@ import { PrescriptionLink } from "@/components/pos/PrescriptionLink"
 type PaymentMethodType = "cash" | "card" | "transfer"
 
 export default function POSPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const branchId = user?.branchId ?? ""
 
   const [cartItems, setCartItems] = useState<CartItem[]>([])
@@ -202,7 +202,9 @@ export default function POSPage() {
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-sm text-muted-foreground">
-                Loading branch...
+                {authLoading
+                  ? "Loading branch..."
+                  : "Please contact admin to assign your branch."}
               </p>
             </div>
           )}

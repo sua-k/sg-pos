@@ -62,10 +62,11 @@ export function Sidebar() {
   const { user, signOut } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
 
-  const userRole = user?.role as UserRole | undefined
+  const userRole = user?.role ?? null
 
+  // If role is null/undefined, show all items (server-side auth checks protect actual access)
   const visibleItems = NAV_ITEMS.filter(
-    (item) => !userRole || item.roles.includes(userRole)
+    (item) => !userRole || item.roles.includes(userRole as UserRole)
   )
 
   async function handleSignOut() {

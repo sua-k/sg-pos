@@ -1,14 +1,17 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { UserRole } from "@/types/auth"
 
 interface AuthUser {
   id: string
   email: string
+  name: string
   role: UserRole | null
   branchId: string | null
+  branchCode: string | null
+  branchName: string | null
 }
 
 interface AuthContextType {
@@ -31,47 +34,47 @@ export function useAuth() {
   return context
 }
 
-function parseJwtClaims(accessToken: string): { user_role?: string; branch_id?: string } {
-  try {
-    const payload = accessToken.split(".")[1]
-    return JSON.parse(atob(payload))
-  } catch {
-    return {}
-  }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const fetchUserData = useCallback(async (): Promise<AuthUser | null> => {
+    try {
+      const res = await fetch("/api/auth/me")
+      if (!res.ok) return null
+      const data = await res.json()
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: data.role as UserRole,
+        branchId: data.branchId,
+        branchCode: data.branchCode,
+        branchName: data.branchName,
+      }
+    } catch {
+      return null
+    }
+  }, [])
+
   useEffect(() => {
     const supabase = createClient()
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get initial session and fetch user data
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        const claims = parseJwtClaims(session.access_token)
-        setUser({
-          id: session.user.id,
-          email: session.user.email ?? "",
-          role: (claims.user_role as UserRole) ?? null,
-          branchId: claims.branch_id ?? null,
-        })
+        const userData = await fetchUserData()
+        setUser(userData)
       }
       setLoading(false)
     })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
         if (session?.user) {
-          const claims = parseJwtClaims(session.access_token)
-          setUser({
-            id: session.user.id,
-            email: session.user.email ?? "",
-            role: (claims.user_role as UserRole) ?? null,
-            branchId: claims.branch_id ?? null,
-          })
+          const userData = await fetchUserData()
+          setUser(userData)
         } else {
           setUser(null)
         }
@@ -82,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, [fetchUserData])
 
   async function signOut() {
     const supabase = createClient()
