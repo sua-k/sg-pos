@@ -228,12 +228,12 @@ export default function NewPrescriptionPage() {
 
               <div className="space-y-1.5">
                 <Label>Prescriber (optional)</Label>
-                <Select value={form.prescriberId} onValueChange={(v) => setForm((p) => ({ ...p, prescriberId: v }))}>
+                <Select value={form.prescriberId || 'none'} onValueChange={(v) => setForm((p) => ({ ...p, prescriberId: v === 'none' ? '' : v }))}>
                   <SelectTrigger className="min-h-[44px]">
                     <SelectValue placeholder="Select prescriber" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {prescribers.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}{p.licenseNo ? ` — ${p.licenseNo}` : ''}

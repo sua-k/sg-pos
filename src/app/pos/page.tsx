@@ -242,6 +242,7 @@ export default function POSPage() {
             onCompleteSale={handleCompleteSale}
             selectedMethod={paymentMethod}
             disabled={!canComplete}
+            grandTotal={cartItems.reduce((sum, item) => sum + item.lineTotal, 0)}
             loading={loading}
           />
         </div>

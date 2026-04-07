@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const createPrescriptionSchema = z.object({
   customerId: z.string().min(1),
-  prescriberId: z.string().min(1).nullable().optional(),
+  prescriberId: z.string().nullable().optional(),
   branchId: z.string().min(1),
   issuedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format'),
   expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format'),
