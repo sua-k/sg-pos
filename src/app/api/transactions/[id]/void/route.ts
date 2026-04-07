@@ -63,7 +63,43 @@ export async function POST(
           })
         }
 
-        // 3. Set transaction status to voided
+        // 3. Restore prescription consumed grams
+        const txPrescriptions = await tx.transactionPrescription.findMany({
+          where: { transactionId: transaction.id },
+        })
+
+        if (txPrescriptions.length > 0) {
+          // Calculate total cannabis weight from this transaction
+          const totalWeightSold = transaction.items.reduce((sum, item) => {
+            return sum + (item.weightGrams ? Number(item.weightGrams) : 0)
+          }, 0)
+
+          if (totalWeightSold > 0) {
+            // Distribute the restoration across linked prescriptions
+            let weightToRestore = totalWeightSold
+            for (const txRx of txPrescriptions) {
+              const rx = await tx.prescription.findUnique({ where: { id: txRx.prescriptionId } })
+              if (rx && weightToRestore > 0) {
+                const consumed = Number(rx.consumedG)
+                const deduct = Math.min(weightToRestore, consumed)
+                if (deduct > 0) {
+                  await tx.prescription.update({
+                    where: { id: txRx.prescriptionId },
+                    data: { consumedG: { decrement: deduct } },
+                  })
+                  weightToRestore -= deduct
+                }
+              }
+            }
+          }
+
+          // Remove the prescription links
+          await tx.transactionPrescription.deleteMany({
+            where: { transactionId: transaction.id },
+          })
+        }
+
+        // 4. Set transaction status to voided
         const voided = await tx.transaction.update({
           where: { id: params.id },
           data: { status: 'voided' },
