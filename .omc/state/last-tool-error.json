@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"SUPABASE_URL=\\\"https://uaprvjayxaotlacecrky.supabase.co\\\"\\nANON_KEY=\\\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhcHJ2amF5eGFvdGxhY2Vjcmt5Iiwicm9sZSI6ImFub24iL...",
+  "error": "Exit code 1\nTraceback (most recent call last):\n  File \"<stdin>\", line 13, in <module>\nKeyError: 'access_token'\n[rerun: b5]",
+  "timestamp": "2026-04-07T02:44:46.883Z",
+  "retry_count": 3
+}

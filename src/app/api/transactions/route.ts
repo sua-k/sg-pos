@@ -274,6 +274,8 @@ export async function POST(request: NextRequest) {
             return sum
           }, new Decimal(0))
 
+          // Validate all prescriptions first
+          const prescriptions = []
           for (const prescriptionId of prescriptionIds) {
             const prescription = await tx.prescription.findUnique({
               where: { id: prescriptionId },
@@ -284,30 +286,56 @@ export async function POST(request: NextRequest) {
             if (prescription.expiryDate < new Date()) {
               throw new Error(`VALIDATION:Prescription ${prescription.prescriptionNo} is expired`)
             }
-            if (prescription.totalAllowedG !== null) {
-              const remaining = new Decimal(prescription.totalAllowedG.toString()).minus(
-                new Decimal(prescription.consumedG.toString())
-              )
-              if (remaining.lt(totalWeightG)) {
-                throw new Error(
-                  `VALIDATION:Prescription ${prescription.prescriptionNo} has insufficient remaining allowance. Available: ${remaining.toFixed(2)}g, Required: ${totalWeightG.toFixed(2)}g`
-                )
-              }
-            }
+            prescriptions.push(prescription)
+          }
 
+          // Check total allowance across all linked prescriptions
+          if (totalWeightG.gt(0)) {
+            const totalRemaining = prescriptions.reduce((sum, rx) => {
+              if (rx.totalAllowedG !== null) {
+                const remaining = new Decimal(rx.totalAllowedG.toString()).minus(
+                  new Decimal(rx.consumedG.toString())
+                )
+                return sum.plus(Decimal.max(remaining, 0))
+              }
+              return sum.plus(999999) // No limit set = unlimited
+            }, new Decimal(0))
+
+            if (totalRemaining.lt(totalWeightG)) {
+              throw new Error(
+                `VALIDATION:Insufficient prescription allowance. Available: ${totalRemaining.toFixed(2)}g, Required: ${totalWeightG.toFixed(2)}g`
+              )
+            }
+          }
+
+          // Distribute weight across prescriptions sequentially (FIFO by linked order)
+          let weightRemaining = new Decimal(totalWeightG)
+
+          for (const prescription of prescriptions) {
             await tx.transactionPrescription.create({
-              data: { transactionId: transaction.id, prescriptionId },
+              data: { transactionId: transaction.id, prescriptionId: prescription.id },
             })
 
-            if (totalWeightG.gt(0)) {
+            if (weightRemaining.gt(0) && prescription.totalAllowedG !== null) {
+              const rxRemaining = new Decimal(prescription.totalAllowedG.toString()).minus(
+                new Decimal(prescription.consumedG.toString())
+              )
+              const deduct = Decimal.min(weightRemaining, Decimal.max(rxRemaining, 0))
+
+              if (deduct.gt(0)) {
+                await tx.prescription.update({
+                  where: { id: prescription.id },
+                  data: { consumedG: { increment: deduct.toNumber() } },
+                })
+                weightRemaining = weightRemaining.minus(deduct)
+              }
+            } else if (weightRemaining.gt(0) && prescription.totalAllowedG === null) {
+              // No limit — deduct all remaining weight from this one
               await tx.prescription.update({
-                where: { id: prescriptionId },
-                data: {
-                  consumedG: {
-                    increment: totalWeightG.toNumber(),
-                  },
-                },
+                where: { id: prescription.id },
+                data: { consumedG: { increment: weightRemaining.toNumber() } },
               })
+              weightRemaining = new Decimal(0)
             }
           }
         }
