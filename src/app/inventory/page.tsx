@@ -31,7 +31,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { Search, Package, AlertTriangle } from 'lucide-react'
+import { Search, Package, AlertTriangle, Plus } from 'lucide-react'
 
 interface Branch {
   id: string
@@ -75,12 +75,27 @@ export default function InventoryPage() {
   const [adjustNotes, setAdjustNotes] = useState('')
   const [adjusting, setAdjusting] = useState(false)
 
+  // Receive Stock dialog
+  const [receiveOpen, setReceiveOpen] = useState(false)
+  const [receiveProductId, setReceiveProductId] = useState('')
+  const [receiveQty, setReceiveQty] = useState('')
+  const [receiveUnitCost, setReceiveUnitCost] = useState('')
+  const [receiveBatch, setReceiveBatch] = useState('')
+  const [receiveExpiry, setReceiveExpiry] = useState('')
+  const [receiveSaving, setReceiveSaving] = useState(false)
+  const [receiveError, setReceiveError] = useState('')
+  const [products, setProducts] = useState<{ id: string; name: string; sku: string }[]>([])
+
   const isManager = user?.role === 'admin' || user?.role === 'manager'
 
   useEffect(() => {
     fetch('/api/branches')
       .then((r) => r.json())
       .then((d) => setBranches(d.branches ?? []))
+    fetch('/api/products?take=500')
+      .then((r) => r.json())
+      .then((d) => setProducts((d.products ?? []).map((p: { id: string; name: string; sku: string }) => ({ id: p.id, name: p.name, sku: p.sku }))))
+      .catch(() => {})
   }, [])
 
   const fetchInventory = useCallback(async () => {
@@ -143,14 +158,81 @@ export default function InventoryPage() {
     }
   }
 
+  function openReceiveDialog() {
+    setReceiveProductId('')
+    setReceiveQty('')
+    setReceiveUnitCost('')
+    setReceiveBatch('')
+    setReceiveExpiry('')
+    setReceiveError('')
+    setReceiveOpen(true)
+  }
+
+  async function handleReceiveStock() {
+    if (!receiveProductId || !receiveQty) {
+      setReceiveError('Product and quantity are required')
+      return
+    }
+    const qty = parseFloat(receiveQty)
+    if (qty <= 0) {
+      setReceiveError('Quantity must be positive')
+      return
+    }
+    setReceiveSaving(true)
+    setReceiveError('')
+    try {
+      const effectiveBranch = branchId || user?.branchId
+      if (!effectiveBranch) {
+        setReceiveError('No branch selected')
+        return
+      }
+
+      const notes = [
+        receiveUnitCost ? `Unit cost: ${receiveUnitCost} THB` : '',
+        receiveBatch ? `Batch: ${receiveBatch}` : '',
+        receiveExpiry ? `Expiry: ${receiveExpiry}` : '',
+      ].filter(Boolean).join(', ')
+
+      const res = await fetch(`/api/products/${receiveProductId}/adjust`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId: effectiveBranch,
+          quantity: qty,
+          reason: 'received',
+          notes: notes || undefined,
+        }),
+      })
+      if (res.ok) {
+        setReceiveOpen(false)
+        fetchInventory()
+      } else {
+        const data = await res.json()
+        setReceiveError(data.error ?? 'Failed to receive stock')
+      }
+    } catch {
+      setReceiveError('Failed to receive stock')
+    } finally {
+      setReceiveSaving(false)
+    }
+  }
+
   return (
     <AppShell>
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Inventory</h1>
-          <p className="text-sm text-muted-foreground">
-            {loading ? 'Loading...' : `${total} record${total !== 1 ? 's' : ''}`}
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              {loading ? 'Loading...' : `${total} record${total !== 1 ? 's' : ''}`}
+            </p>
+            {isManager && (
+              <Button onClick={openReceiveDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                Receive Stock
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Filters */}
@@ -324,6 +406,88 @@ export default function InventoryPage() {
             </Button>
             <Button onClick={handleAdjust} disabled={adjusting || !adjustQty}>
               {adjusting ? 'Saving...' : 'Save Adjustment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receive Stock Dialog */}
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Receive Stock</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {receiveError && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {receiveError}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Product *</Label>
+              <Select value={receiveProductId} onValueChange={setReceiveProductId}>
+                <SelectTrigger className="min-h-[44px]">
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} ({p.sku})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Quantity *</Label>
+              <Input
+                type="number"
+                min="1"
+                value={receiveQty}
+                onChange={(e) => setReceiveQty(e.target.value)}
+                placeholder="Units received"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Unit Cost (THB)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={receiveUnitCost}
+                onChange={(e) => setReceiveUnitCost(e.target.value)}
+                placeholder="Cost per unit"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Batch Number</Label>
+                <Input
+                  value={receiveBatch}
+                  onChange={(e) => setReceiveBatch(e.target.value)}
+                  placeholder="e.g. LOT-2024-001"
+                  className="min-h-[44px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Expiry Date</Label>
+                <Input
+                  type="date"
+                  value={receiveExpiry}
+                  onChange={(e) => setReceiveExpiry(e.target.value)}
+                  className="min-h-[44px]"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleReceiveStock} disabled={receiveSaving || !receiveProductId || !receiveQty}>
+              {receiveSaving ? 'Receiving...' : 'Receive Stock'}
             </Button>
           </DialogFooter>
         </DialogContent>

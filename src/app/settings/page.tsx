@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -19,9 +22,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { Settings, Users, GitBranch, SlidersHorizontal, Loader2, Check } from 'lucide-react'
+import { Settings, Users, GitBranch, SlidersHorizontal, Loader2, Check, Plus } from 'lucide-react'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +59,60 @@ function UsersTab({ branches }: { branches: Branch[] }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+
+  // Add User dialog state
+  const [addOpen, setAddOpen] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addEmail, setAddEmail] = useState('')
+  const [addPassword, setAddPassword] = useState('')
+  const [addRole, setAddRole] = useState('staff')
+  const [addBranchId, setAddBranchId] = useState('')
+  const [addSaving, setAddSaving] = useState(false)
+  const [addError, setAddError] = useState('')
+
+  function resetAddForm() {
+    setAddName('')
+    setAddEmail('')
+    setAddPassword('')
+    setAddRole('staff')
+    setAddBranchId(branches[0]?.id ?? '')
+    setAddError('')
+  }
+
+  async function handleAddUser() {
+    if (!addName || !addEmail || !addPassword || !addBranchId) {
+      setAddError('All fields are required')
+      return
+    }
+    setAddSaving(true)
+    setAddError('')
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: addName,
+          email: addEmail,
+          password: addPassword,
+          role: addRole,
+          branchId: addBranchId,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setAddError(data.error ?? 'Failed to create user')
+        return
+      }
+      const newUser: UserRow = await res.json()
+      setUsers((prev) => [...prev, newUser])
+      setAddOpen(false)
+      resetAddForm()
+    } catch {
+      setAddError('Failed to create user')
+    } finally {
+      setAddSaving(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/users')
@@ -87,70 +151,156 @@ function UsersTab({ branches }: { branches: Branch[] }) {
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">System Users</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Branch</TableHead>
-              <TableHead className="w-8" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">{user.email}</TableCell>
-                <TableCell>
-                  <Select
-                    value={user.role}
-                    onValueChange={(value) => updateUser(user.id, { role: value })}
-                    disabled={saving === user.id}
-                  >
-                    <SelectTrigger className="w-32 h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={user.branchId}
-                    onValueChange={(value) => updateUser(user.id, { branchId: value })}
-                    disabled={saving === user.id}
-                  >
-                    <SelectTrigger className="w-44 h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  {saving === user.id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                  {saved === user.id && <Check className="h-4 w-4 text-green-600" />}
-                </TableCell>
+    <>
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base">System Users</CardTitle>
+          <Button size="sm" onClick={() => { resetAddForm(); setAddOpen(true) }}>
+            <Plus className="h-4 w-4 mr-1" /> Add User
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Branch</TableHead>
+                <TableHead className="w-8" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{user.email}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={user.role}
+                      onValueChange={(value) => updateUser(user.id, { role: value })}
+                      disabled={saving === user.id}
+                    >
+                      <SelectTrigger className="w-32 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="staff">Staff</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={user.branchId}
+                      onValueChange={(value) => updateUser(user.id, { branchId: value })}
+                      disabled={saving === user.id}
+                    >
+                      <SelectTrigger className="w-44 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    {saving === user.id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                    {saved === user.id && <Check className="h-4 w-4 text-green-600" />}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Add User Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {addError && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {addError}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder="Full name"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+                placeholder="user@example.com"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={addPassword}
+                onChange={(e) => setAddPassword(e.target.value)}
+                placeholder="Minimum 6 characters"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={addRole} onValueChange={setAddRole}>
+                <SelectTrigger className="min-h-[44px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Branch</Label>
+              <Select value={addBranchId} onValueChange={setAddBranchId}>
+                <SelectTrigger className="min-h-[44px]">
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddUser} disabled={addSaving}>
+              {addSaving ? 'Creating...' : 'Create User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -167,6 +317,57 @@ interface BranchDetail {
 function BranchesTab() {
   const [branches, setBranches] = useState<BranchDetail[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Add Branch dialog state
+  const [addOpen, setAddOpen] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addCode, setAddCode] = useState('')
+  const [addAddress, setAddAddress] = useState('')
+  const [addPhone, setAddPhone] = useState('')
+  const [addSaving, setAddSaving] = useState(false)
+  const [addError, setAddError] = useState('')
+
+  function resetAddForm() {
+    setAddName('')
+    setAddCode('')
+    setAddAddress('')
+    setAddPhone('')
+    setAddError('')
+  }
+
+  async function handleAddBranch() {
+    if (!addName || !addCode) {
+      setAddError('Name and code are required')
+      return
+    }
+    setAddSaving(true)
+    setAddError('')
+    try {
+      const res = await fetch('/api/branches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: addName,
+          code: addCode,
+          address: addAddress || null,
+          phone: addPhone || null,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setAddError(data.error ?? 'Failed to create branch')
+        return
+      }
+      const newBranch: BranchDetail = await res.json()
+      setBranches((prev) => [...prev, newBranch])
+      setAddOpen(false)
+      resetAddForm()
+    } catch {
+      setAddError('Failed to create branch')
+    } finally {
+      setAddSaving(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/branches')
@@ -185,41 +386,106 @@ function BranchesTab() {
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Branches</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Phone</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {branches.map((b) => (
-              <TableRow key={b.id}>
-                <TableCell className="font-medium">{b.name}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="font-mono">
-                    {b.code}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {b.address ?? <span className="italic opacity-50">—</span>}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {b.phone ?? <span className="italic opacity-50">—</span>}
-                </TableCell>
+    <>
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Branches</CardTitle>
+          <Button size="sm" onClick={() => { resetAddForm(); setAddOpen(true) }}>
+            <Plus className="h-4 w-4 mr-1" /> Add Branch
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Code</TableHead>
+                <TableHead>Address</TableHead>
+                <TableHead>Phone</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {branches.map((b) => (
+                <TableRow key={b.id}>
+                  <TableCell className="font-medium">{b.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="font-mono">
+                      {b.code}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {b.address ?? <span className="italic opacity-50">—</span>}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {b.phone ?? <span className="italic opacity-50">—</span>}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Add Branch Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Branch</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {addError && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {addError}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Name *</Label>
+              <Input
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder="Branch name"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Code *</Label>
+              <Input
+                value={addCode}
+                onChange={(e) => setAddCode(e.target.value)}
+                placeholder="e.g. BKK01"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Input
+                value={addAddress}
+                onChange={(e) => setAddAddress(e.target.value)}
+                placeholder="Street address"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input
+                value={addPhone}
+                onChange={(e) => setAddPhone(e.target.value)}
+                placeholder="e.g. 02-XXX-XXXX"
+                className="min-h-[44px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddBranch} disabled={addSaving}>
+              {addSaving ? 'Creating...' : 'Create Branch'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -264,7 +530,7 @@ function ConfigTab() {
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const [branches, setBranches] = useState<Branch[]>([])
 
   useEffect(() => {
@@ -274,7 +540,17 @@ export default function SettingsPage() {
       .catch(() => {})
   }, [])
 
-  if (user && user.role !== 'admin') {
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center h-64 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading...
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (!user || user.role !== 'admin') {
     return (
       <AppShell>
         <div className="flex items-center justify-center h-64 text-muted-foreground">
