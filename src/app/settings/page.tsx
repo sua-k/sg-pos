@@ -31,7 +31,8 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { Settings, Users, GitBranch, SlidersHorizontal, Loader2, Check, Plus } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Settings, Users, GitBranch, SlidersHorizontal, Loader2, Check, Plus, Pencil } from 'lucide-react'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -312,6 +313,11 @@ interface BranchDetail {
   code: string
   address: string | null
   phone: string | null
+  taxId: string | null
+  companyName: string | null
+  receiptHeader: string | null
+  receiptFooter: string | null
+  logoUrl: string | null
 }
 
 function BranchesTab() {
@@ -326,6 +332,71 @@ function BranchesTab() {
   const [addPhone, setAddPhone] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState('')
+
+  // Edit Branch dialog state
+  const [editOpen, setEditOpen] = useState(false)
+  const [editBranch, setEditBranch] = useState<BranchDetail | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editCode, setEditCode] = useState('')
+  const [editAddress, setEditAddress] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editCompanyName, setEditCompanyName] = useState('')
+  const [editTaxId, setEditTaxId] = useState('')
+  const [editReceiptHeader, setEditReceiptHeader] = useState('')
+  const [editReceiptFooter, setEditReceiptFooter] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+
+  function openEditDialog(branch: BranchDetail) {
+    setEditBranch(branch)
+    setEditName(branch.name)
+    setEditCode(branch.code)
+    setEditAddress(branch.address ?? '')
+    setEditPhone(branch.phone ?? '')
+    setEditCompanyName(branch.companyName ?? '')
+    setEditTaxId(branch.taxId ?? '')
+    setEditReceiptHeader(branch.receiptHeader ?? '')
+    setEditReceiptFooter(branch.receiptFooter ?? '')
+    setEditError('')
+    setEditOpen(true)
+  }
+
+  async function handleEditBranch() {
+    if (!editBranch || !editName || !editCode) {
+      setEditError('Name and code are required')
+      return
+    }
+    setEditSaving(true)
+    setEditError('')
+    try {
+      const res = await fetch(`/api/branches/${editBranch.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName,
+          code: editCode,
+          address: editAddress || null,
+          phone: editPhone || null,
+          companyName: editCompanyName || null,
+          taxId: editTaxId || null,
+          receiptHeader: editReceiptHeader || null,
+          receiptFooter: editReceiptFooter || null,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setEditError(data.error ?? 'Failed to update branch')
+        return
+      }
+      const updated: BranchDetail = await res.json()
+      setBranches((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
+      setEditOpen(false)
+    } catch {
+      setEditError('Failed to update branch')
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   function resetAddForm() {
     setAddName('')
@@ -402,6 +473,7 @@ function BranchesTab() {
                 <TableHead>Code</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead>Phone</TableHead>
+                <TableHead className="w-16" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -418,6 +490,11 @@ function BranchesTab() {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {b.phone ?? <span className="italic opacity-50">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(b)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -481,6 +558,107 @@ function BranchesTab() {
             </Button>
             <Button onClick={handleAddBranch} disabled={addSaving}>
               {addSaving ? 'Creating...' : 'Create Branch'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Branch Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Branch</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {editError && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {editError}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Name *</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Branch name"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Code *</Label>
+              <Input
+                value={editCode}
+                onChange={(e) => setEditCode(e.target.value)}
+                placeholder="e.g. BKK01"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Input
+                value={editAddress}
+                onChange={(e) => setEditAddress(e.target.value)}
+                placeholder="Street address"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="e.g. 02-XXX-XXXX"
+                className="min-h-[44px]"
+              />
+            </div>
+
+            <div className="border-t pt-4 mt-4">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Receipt Customization</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Company Name (ชื่อบริษัท)</Label>
+              <Input
+                value={editCompanyName}
+                onChange={(e) => setEditCompanyName(e.target.value)}
+                placeholder="บริษัท สยาม กรีน จำกัด"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tax ID (เลขประจำตัวผู้เสียภาษี)</Label>
+              <Input
+                value={editTaxId}
+                onChange={(e) => setEditTaxId(e.target.value)}
+                placeholder="0105567XXXXXX"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Receipt Header (ข้อความส่วนหัวใบเสร็จ)</Label>
+              <Textarea
+                value={editReceiptHeader}
+                onChange={(e) => setEditReceiptHeader(e.target.value)}
+                placeholder="Custom header text, e.g. promotions or Thai greeting"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Receipt Footer (ข้อความส่วนท้ายใบเสร็จ)</Label>
+              <Textarea
+                value={editReceiptFooter}
+                onChange={(e) => setEditReceiptFooter(e.target.value)}
+                placeholder="ขอบคุณที่ใช้บริการ | Thank you for your purchase"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditBranch} disabled={editSaving}>
+              {editSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>

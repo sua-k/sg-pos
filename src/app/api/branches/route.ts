@@ -7,7 +7,7 @@ export async function GET() {
     await requireAuth()
 
     const branches = await prisma.branch.findMany({
-      select: { id: true, name: true, code: true, address: true, phone: true },
+      select: { id: true, name: true, code: true, address: true, phone: true, taxId: true, companyName: true, receiptHeader: true, receiptFooter: true, logoUrl: true },
       orderBy: { name: 'asc' },
     })
 

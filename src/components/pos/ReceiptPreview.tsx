@@ -40,6 +40,8 @@ export interface ReceiptData {
     companyName: string
     taxId: string
   }
+  receiptHeader?: string | null
+  receiptFooter?: string | null
 }
 
 interface ReceiptPreviewProps {
@@ -123,6 +125,12 @@ export function ReceiptPreview({ receipt, onClose, onPrint }: ReceiptPreviewProp
               Tax ID: {receipt.taxInfo.taxId}
             </div>
           </div>
+
+          {receipt.receiptHeader && (
+            <div style={{ textAlign: 'center', fontSize: '11px', marginBottom: '4px', whiteSpace: 'pre-line' }}>
+              {receipt.receiptHeader}
+            </div>
+          )}
 
           <div style={{ textAlign: 'center', color: '#555', fontSize: '11px', marginBottom: '4px' }}>
             {DASH_LINE}
@@ -236,9 +244,11 @@ export function ReceiptPreview({ receipt, onClose, onPrint }: ReceiptPreviewProp
           </div>
 
           {/* Footer */}
-          <div style={{ textAlign: 'center', fontSize: '11px' }}>
-            <div>Thank you for your purchase</div>
-            <div>ขอบคุณที่ใช้บริการ</div>
+          <div style={{ textAlign: 'center', fontSize: '11px', whiteSpace: 'pre-line' }}>
+            {receipt.receiptFooter
+              ? receipt.receiptFooter
+              : (<><div>ขอบคุณที่ใช้บริการ</div><div>Thank you for your purchase</div></>)
+            }
           </div>
 
           <div style={{ textAlign: 'center', color: '#555', fontSize: '11px', marginTop: '4px' }}>

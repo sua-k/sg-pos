@@ -57,9 +57,11 @@ export async function GET(
       paymentMethod: transaction.paymentMethod,
       status: transaction.status,
       taxInfo: {
-        companyName: 'Siam Green Co., Ltd.',
-        taxId: process.env.COMPANY_TAX_ID || '0105XXXXXXXXX',
+        companyName: transaction.branch.companyName || 'Siam Green Co., Ltd.',
+        taxId: transaction.branch.taxId || process.env.COMPANY_TAX_ID || '0105XXXXXXXXX',
       },
+      receiptHeader: transaction.branch.receiptHeader || null,
+      receiptFooter: transaction.branch.receiptFooter || null,
     })
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {

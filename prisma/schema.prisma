@@ -31,6 +31,11 @@ model Branch {
   code          String          @unique
   address       String?
   phone         String?
+  taxId         String?         @map("tax_id")
+  companyName   String?         @map("company_name")
+  receiptHeader String?         @map("receipt_header")
+  receiptFooter String?         @map("receipt_footer")
+  logoUrl       String?         @map("logo_url")
   createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   cashSessions  CashSession[]
   costLayers    CostLayer[]
