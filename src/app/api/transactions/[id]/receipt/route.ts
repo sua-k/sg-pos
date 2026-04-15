@@ -62,6 +62,7 @@ export async function GET(
         ? new Decimal(transaction.totalTHB.toString()).plus(new Decimal(transaction.discountTHB.toString())).toString()
         : null,
       paymentMethod: transaction.paymentMethod,
+      paymentSplit: transaction.paymentSplit ?? null,
       status: transaction.status,
       taxInfo: {
         companyName: transaction.branch.companyName || 'Siam Green Co., Ltd.',

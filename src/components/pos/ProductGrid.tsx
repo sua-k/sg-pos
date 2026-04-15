@@ -16,6 +16,7 @@ interface ProductData {
   strainType: string | null
   soldByWeight: boolean
   expiryDate: string | null
+  imageUrl: string | null
   category: { id: string; name: string } | null
   inventory: Array<{ quantity: string | number }>
 }
@@ -239,6 +240,28 @@ export function ProductGrid({ branchId, onAddToCart }: ProductGridProps) {
                       EXPIRING SOON
                     </span>
                   )}
+
+                  {/* Product image or fallback letter */}
+                  <div className="w-full mb-2 aspect-square rounded overflow-hidden bg-muted flex items-center justify-center">
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement | null
+                          if (fallback) fallback.style.display = 'flex'
+                        }}
+                      />
+                    ) : null}
+                    <span
+                      className="text-xl font-bold uppercase text-muted-foreground"
+                      style={{ display: product.imageUrl ? 'none' : 'flex' }}
+                    >
+                      {product.name.charAt(0)}
+                    </span>
+                  </div>
 
                   <p className="line-clamp-2 text-sm font-medium leading-tight">
                     {product.name}

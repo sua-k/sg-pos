@@ -47,6 +47,7 @@ export default function NewProductPage() {
   const [batchNumber, setBatchNumber] = useState('')
   const [categoryId, setCategoryId] = useState<string>('')
   const [imageUrl, setImageUrl] = useState('')
+  const [minStock, setMinStock] = useState('')
 
   useEffect(() => {
     fetch('/api/categories')
@@ -81,6 +82,7 @@ export default function NewProductPage() {
       if (batchNumber) body.batchNumber = batchNumber
       if (categoryId) body.categoryId = categoryId
       if (imageUrl) body.imageUrl = imageUrl
+      if (minStock) body.minStock = parseFloat(minStock)
 
       const res = await fetch('/api/products', {
         method: 'POST',
@@ -354,16 +356,31 @@ export default function NewProductPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input
-                  id="imageUrl"
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="min-h-[44px]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="imageUrl">Image URL</Label>
+                  <Input
+                    id="imageUrl"
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="min-h-[44px]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="minStock">Min Stock Threshold</Label>
+                  <Input
+                    id="minStock"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={minStock}
+                    onChange={(e) => setMinStock(e.target.value)}
+                    placeholder="e.g. 10"
+                    className="min-h-[44px]"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end pt-4">

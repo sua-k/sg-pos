@@ -5,7 +5,7 @@ import { AppShell } from "@/components/layout/AppShell"
 import { ProductGrid } from "@/components/pos/ProductGrid"
 import { Cart, CartItem } from "@/components/pos/Cart"
 import { CustomerEntry, CustomerData } from "@/components/pos/CustomerEntry"
-import { PaymentPanel } from "@/components/pos/PaymentPanel"
+import { PaymentPanel, type SplitEntry } from "@/components/pos/PaymentPanel"
 import { ReceiptPreview, type ReceiptData } from "@/components/pos/ReceiptPreview"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,7 @@ export default function POSPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [customer, setCustomer] = useState<CustomerData | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType | null>(null)
+  const [splitPayment, setSplitPayment] = useState<SplitEntry[] | null>(null)
   const [linkedPrescriptions, setLinkedPrescriptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | null>(null)
@@ -123,8 +124,13 @@ export default function POSPage() {
     setCartItems((prev) => prev.filter((item) => item.productId !== productId))
   }, [])
 
+  const handleSplitPayment = useCallback((splits: SplitEntry[]) => {
+    setSplitPayment(splits.length > 0 ? splits : null)
+  }, [])
+
   async function handleCompleteSale() {
-    if (!customer || !paymentMethod || cartItems.length === 0 || !branchId) return
+    const isSplit = splitPayment !== null && splitPayment.length > 0
+    if (!customer || (!isSplit && !paymentMethod) || cartItems.length === 0 || !branchId) return
     if (!customer.isMinimumAge) {
       toast.error("Customer must be at least 20 years old")
       return
@@ -141,6 +147,11 @@ export default function POSPage() {
           : {}),
       }))
 
+      // For split payment, use the first method (prefer cash) as primary
+      const effectivePaymentMethod: PaymentMethodType = isSplit
+        ? ((splitPayment!.find((s) => s.method === "cash") ? "cash" : splitPayment![0].method) as PaymentMethodType)
+        : paymentMethod!
+
       const res = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,7 +159,8 @@ export default function POSPage() {
           customerId: customer.id,
           branchId,
           items: apiItems,
-          paymentMethod,
+          paymentMethod: effectivePaymentMethod,
+          ...(isSplit ? { paymentSplit: JSON.stringify(splitPayment) } : {}),
           prescriptionIds: linkedPrescriptions,
           ...(discountType && discountValue ? {
             discountType,
@@ -169,6 +181,7 @@ export default function POSPage() {
       setCartItems([])
       setCustomer(null)
       setPaymentMethod(null)
+      setSplitPayment(null)
       setLinkedPrescriptions([])
       setDiscountType(null)
       setDiscountValue('')
@@ -195,11 +208,12 @@ export default function POSPage() {
     }
   }
 
+  const isSplitReady = splitPayment !== null && splitPayment.length > 0
   const canComplete =
     !!customer &&
     customer.isMinimumAge &&
     cartItems.length > 0 &&
-    !!paymentMethod &&
+    (isSplitReady || !!paymentMethod) &&
     !loading
 
   return (
@@ -294,6 +308,7 @@ export default function POSPage() {
           {/* Payment Panel */}
           <PaymentPanel
             onSelectPayment={setPaymentMethod}
+            onSplitPayment={handleSplitPayment}
             onCompleteSale={handleCompleteSale}
             selectedMethod={paymentMethod}
             disabled={!canComplete}

@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"/Users/suaserver/Documents/Claude/Projects/SG POS/sg-pos\\\" && npm run build 2>&1\",\"timeout\":240000}",
-  "error": "Exit code 1\n\n> sg-pos@0.1.0 build\n> prisma generate && next build\n\nLoaded Prisma config from prisma.config.ts.\n\nPrisma schema loaded from prisma/schema.prisma.\n\n✔ Generated Prisma Client (v7.6.0) to ./node_modules/@prisma/client in 112ms\n\nStart by importing your Prisma Client (See: https://pris.ly/d/importing-client)\n\n\n  ▲ Next.js 14.2.35\n  - Environments: .env.local, .env\n\n   Creating an optimized production build ...\n<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (215kiB) im...",
-  "timestamp": "2026-04-15T15:20:39.260Z",
+  "tool_input_preview": "{\"command\":\"cd \\\"/Users/suaserver/Documents/Claude/Projects/SG POS/sg-pos\\\" && rm -rf .next && npm run build 2>&1\",\"timeout\":300000}",
+  "error": "Exit code 1\n\n> sg-pos@0.1.0 build\n> prisma generate && next build\n\nLoaded Prisma config from prisma.config.ts.\n\nPrisma schema loaded from prisma/schema.prisma.\n\n✔ Generated Prisma Client (v7.6.0) to ./node_modules/@prisma/client in 151ms\n\nStart by importing your Prisma Client (See: https://pris.ly/d/importing-client)\n\n\n  ▲ Next.js 14.2.35\n  - Environments: .env.local, .env\n\n   Creating an optimized production build ...\n ✓ Compiled successfully\n   Skipping linting\n   Checking validity of types .....",
+  "timestamp": "2026-04-15T15:29:37.712Z",
   "retry_count": 13
 }

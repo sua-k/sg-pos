@@ -81,6 +81,7 @@ interface CheckoutBody {
   branchId: string
   items: CheckoutItem[]
   paymentMethod: 'cash' | 'card' | 'transfer'
+  paymentSplit?: string | null
   prescriptionIds?: string[]
   discountType?: 'percentage' | 'fixed' | null
   discountValue?: number | null
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth()
 
     const body: CheckoutBody = await request.json()
-    const { customerId, branchId, items, paymentMethod, prescriptionIds, discountType, discountValue } = body
+    const { customerId, branchId, items, paymentMethod, paymentSplit, prescriptionIds, discountType, discountValue } = body
 
     if (!customerId || !branchId || !items?.length || !paymentMethod) {
       return NextResponse.json(
@@ -252,6 +253,7 @@ export async function POST(request: NextRequest) {
               discountTHB: discountTHB.toNumber(),
             } : {}),
             paymentMethod: paymentMethod as 'cash' | 'card' | 'transfer',
+            ...(paymentSplit ? { paymentSplit } : {}),
             receiptNumber,
             ageVerified: true,
             customerAge,

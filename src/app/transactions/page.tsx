@@ -60,7 +60,14 @@ interface ApiResponse {
 
 const PAGE_SIZE = 50
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, receiptNumber }: { status: string; receiptNumber?: string }) {
+  if (receiptNumber?.startsWith('REF-')) {
+    return (
+      <Badge className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100">
+        Refund
+      </Badge>
+    )
+  }
   if (status === 'completed') {
     return (
       <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
@@ -312,7 +319,7 @@ export default function TransactionsPage() {
                         {paymentLabel[tx.paymentMethod] ?? tx.paymentMethod}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={tx.status} />
+                        <StatusBadge status={tx.status} receiptNumber={tx.receiptNumber} />
                       </TableCell>
                       <TableCell className="text-sm">{tx.user.name}</TableCell>
                       {user?.role === 'admin' && (

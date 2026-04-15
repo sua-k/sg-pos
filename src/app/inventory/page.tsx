@@ -46,6 +46,7 @@ interface InventoryItem {
     id: string
     name: string
     sku: string
+    minStock: string | null
     category: { id: string; name: string } | null
   }
   branch: { id: string; name: string; code: string }
@@ -295,6 +296,7 @@ export default function InventoryPage() {
                   <TableHead>SKU</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Branch</TableHead>
+                  <TableHead className="text-right">Min Stock</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
                   {isManager && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
@@ -303,14 +305,14 @@ export default function InventoryPage() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={isManager ? 6 : 5}>
+                      <TableCell colSpan={isManager ? 7 : 6}>
                         <div className="h-4 bg-muted rounded animate-pulse" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : inventory.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isManager ? 6 : 5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={isManager ? 7 : 6} className="text-center py-8 text-muted-foreground">
                       <Package className="h-8 w-8 mx-auto mb-2 opacity-40" />
                       No inventory records found
                     </TableCell>
@@ -318,6 +320,8 @@ export default function InventoryPage() {
                 ) : (
                   inventory.map((item) => {
                     const qty = parseFloat(item.quantity)
+                    const minStockVal = item.product.minStock !== null ? parseFloat(item.product.minStock ?? '0') : null
+                    const threshold = minStockVal ?? 10
                     return (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.product.name}</TableCell>
@@ -330,8 +334,11 @@ export default function InventoryPage() {
                           )}
                         </TableCell>
                         <TableCell>{item.branch.name}</TableCell>
+                        <TableCell className="text-right text-muted-foreground text-sm">
+                          {minStockVal !== null ? formatQty(item.product.minStock!) : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
                         <TableCell className="text-right">
-                          <Badge variant={qty <= 0 ? 'destructive' : qty <= 10 ? 'outline' : 'secondary'}>
+                          <Badge variant={qty <= 0 ? 'destructive' : qty <= threshold ? 'outline' : 'secondary'}>
                             {formatQty(item.quantity)}
                           </Badge>
                         </TableCell>

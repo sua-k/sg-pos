@@ -39,6 +39,7 @@ export interface ReceiptData {
   discountTHB: string | null
   originalTotalTHB: string | null
   paymentMethod: string
+  paymentSplit?: string | null
   status: string
   taxInfo: {
     companyName: string
@@ -145,7 +146,24 @@ export function ReceiptPreview({ receipt, onClose, onPrint }: ReceiptPreviewProp
             <div>Receipt #: {receipt.receiptNumber}</div>
             <div>Date: {formattedDate}</div>
             <div>Cashier: {receipt.cashier}</div>
-            <div>Payment: {paymentLabel[receipt.paymentMethod] ?? receipt.paymentMethod}</div>
+            {receipt.paymentSplit ? (
+              (() => {
+                type SplitEntry = { method: string; amount: number }
+                const splits: SplitEntry[] = JSON.parse(receipt.paymentSplit)
+                return (
+                  <div>
+                    <div>Payment: Split</div>
+                    {splits.map((s, i) => (
+                      <div key={i} style={{ paddingLeft: '8px', fontSize: '11px' }}>
+                        {paymentLabel[s.method] ?? s.method}: {formatTHB(String(s.amount))}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()
+            ) : (
+              <div>Payment: {paymentLabel[receipt.paymentMethod] ?? receipt.paymentMethod}</div>
+            )}
           </div>
 
           <div style={{ textAlign: 'center', color: '#555', fontSize: '11px', marginBottom: '4px' }}>

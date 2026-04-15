@@ -23,6 +23,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { formatTHB, maskId } from '@/lib/utils/format'
 import { ReceiptPreview, type ReceiptData } from '@/components/pos/ReceiptPreview'
 import { useAuth } from '@/components/providers/AuthProvider'
@@ -33,6 +36,7 @@ import {
   AlertTriangle,
   Loader2,
   User,
+  RotateCcw,
 } from 'lucide-react'
 
 interface TransactionDetail {
@@ -132,6 +136,14 @@ export default function TransactionDetailPage({
   const [voidOpen, setVoidOpen] = useState(false)
   const [voidLoading, setVoidLoading] = useState(false)
 
+  // Refund dialog
+  const [refundOpen, setRefundOpen] = useState(false)
+  const [refundLoading, setRefundLoading] = useState(false)
+  const [refundReason, setRefundReason] = useState('')
+  const [refundSelections, setRefundSelections] = useState<
+    Record<string, { selected: boolean; quantity: number }>
+  >({})
+
   useEffect(() => {
     async function load() {
       setLoading(true)
@@ -188,8 +200,62 @@ export default function TransactionDetailPage({
     }
   }
 
+  function openRefundDialog() {
+    if (!transaction) return
+    const selections: Record<string, { selected: boolean; quantity: number }> = {}
+    for (const item of transaction.items) {
+      selections[item.id] = { selected: false, quantity: Number(item.quantity) }
+    }
+    setRefundSelections(selections)
+    setRefundReason('')
+    setRefundOpen(true)
+  }
+
+  async function handleRefund() {
+    const selectedItems = Object.entries(refundSelections)
+      .filter(([, v]) => v.selected && v.quantity > 0)
+      .map(([itemId, v]) => ({
+        transactionItemId: itemId,
+        quantity: v.quantity,
+      }))
+
+    if (selectedItems.length === 0) {
+      toast.error('Select at least one item to refund')
+      return
+    }
+
+    setRefundLoading(true)
+    try {
+      const res = await fetch(`/api/transactions/${id}/refund`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: selectedItems,
+          reason: refundReason || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error || 'Refund failed')
+        return
+      }
+      const refundTx = await res.json()
+      setRefundOpen(false)
+      toast.success(`Refund processed! Receipt: ${refundTx.receiptNumber}`)
+      // Reload transaction to show updated state
+      const reload = await fetch(`/api/transactions/${id}`)
+      if (reload.ok) {
+        const data = await reload.json()
+        setTransaction(data)
+      }
+    } finally {
+      setRefundLoading(false)
+    }
+  }
+
   const canVoid =
     user?.role === 'admin' || user?.role === 'manager'
+  const canRefund = canVoid
 
   if (loading) {
     return (
@@ -276,6 +342,16 @@ export default function TransactionDetailPage({
                     )}
                     Reprint Receipt
                   </Button>
+                  {canRefund && transaction.status === 'completed' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openRefundDialog}
+                    >
+                      <RotateCcw className="h-4 w-4 mr-1" />
+                      Refund Items
+                    </Button>
+                  )}
                   {canVoid && !isVoided && (
                     <Button
                       variant="destructive"
@@ -442,6 +518,107 @@ export default function TransactionDetailPage({
               onClose={() => setReceiptOpen(false)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Refund dialog */}
+      <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Refund Items</DialogTitle>
+            <DialogDescription>
+              Select items and quantities to refund from receipt{' '}
+              <span className="font-mono font-medium">{transaction.receiptNumber}</span>.
+              Inventory and cost layers will be restored.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            {transaction.items.map((item) => {
+              const sel = refundSelections[item.id]
+              if (!sel) return null
+              const maxQty = Number(item.quantity)
+              const isWeightBased = item.weightGrams !== null
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-start gap-3 p-3 border rounded-md"
+                >
+                  <input
+                    type="checkbox"
+                    checked={sel.selected}
+                    onChange={(e) =>
+                      setRefundSelections((prev) => ({
+                        ...prev,
+                        [item.id]: { ...prev[item.id], selected: e.target.checked },
+                      }))
+                    }
+                    className="mt-1 h-4 w-4 rounded border-gray-300"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{item.product.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.product.sku} &middot; Original:{' '}
+                      {isWeightBased
+                        ? `${Number(item.weightGrams).toFixed(2)}g`
+                        : `${maxQty}`}
+                    </p>
+                  </div>
+                  <div className="w-24">
+                    <Label className="text-xs text-muted-foreground">Qty</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={maxQty}
+                      step={isWeightBased ? 0.01 : 1}
+                      value={sel.quantity}
+                      onChange={(e) => {
+                        const val = Math.min(Number(e.target.value), maxQty)
+                        setRefundSelections((prev) => ({
+                          ...prev,
+                          [item.id]: { ...prev[item.id], quantity: val > 0 ? val : 1 },
+                        }))
+                      }}
+                      disabled={!sel.selected}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div>
+            <Label className="text-sm">Reason (optional)</Label>
+            <Textarea
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              placeholder="e.g., Customer returned damaged item"
+              rows={2}
+              className="mt-1"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRefundOpen(false)}
+              disabled={refundLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRefund}
+              disabled={
+                refundLoading ||
+                !Object.values(refundSelections).some((s) => s.selected)
+              }
+            >
+              {refundLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <RotateCcw className="h-4 w-4 mr-2" />
+              )}
+              Process Refund
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -53,16 +53,22 @@ export async function GET(request: NextRequest) {
     // 2. Transaction count
     const transactionCount = transactions.length
 
-    // 3. Low stock alerts (below threshold)
-    const lowStockThreshold = parseInt(process.env.LOW_STOCK_THRESHOLD || '10')
-    const lowStock = await prisma.inventory.findMany({
+    // 3. Low stock alerts (per-product minStock threshold or global fallback)
+    const globalThreshold = parseInt(process.env.LOW_STOCK_THRESHOLD || '10')
+    const allInventory = await prisma.inventory.findMany({
       where: {
-        quantity: { lt: lowStockThreshold },
         ...(branchId ? { branchId } : {}),
       },
       include: { product: true, branch: true },
-      take: 10,
     })
+    const lowStock = allInventory
+      .filter((inv) => {
+        const perProductThreshold = inv.product.minStock !== null
+          ? Number(inv.product.minStock)
+          : globalThreshold
+        return Number(inv.quantity) < perProductThreshold
+      })
+      .slice(0, 10)
 
     // 4. Expiry alerts (within 30 days)
     const expiryDays = parseInt(process.env.EXPIRY_ALERT_DAYS || '30')

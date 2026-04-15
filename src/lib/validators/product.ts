@@ -19,6 +19,7 @@ export const createProductSchema = z.object({
   categoryId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
   imageUrl: z.string().url().nullable().optional(),
+  minStock: z.number().min(0).nullable().optional(),
 })
 
 export const updateProductSchema = createProductSchema.partial()

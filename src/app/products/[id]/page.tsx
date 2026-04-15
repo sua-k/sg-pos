@@ -68,6 +68,7 @@ interface ProductDetail {
   categoryId: string | null
   supplierId: string | null
   imageUrl: string | null
+  minStock: string | null
   category: { id: string; name: string } | null
   supplier: { id: string; name: string } | null
   inventory: InventoryItem[]
@@ -104,6 +105,7 @@ export default function EditProductPage() {
   const [batchNumber, setBatchNumber] = useState('')
   const [categoryId, setCategoryId] = useState<string>('')
   const [imageUrl, setImageUrl] = useState('')
+  const [minStock, setMinStock] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -142,6 +144,7 @@ export default function EditProductPage() {
         setBatchNumber(product.batchNumber ?? '')
         setCategoryId(product.categoryId ?? '')
         setImageUrl(product.imageUrl ?? '')
+        setMinStock(product.minStock ?? '')
         setInventory(product.inventory)
       } catch {
         setError('Failed to load product')
@@ -169,6 +172,7 @@ export default function EditProductPage() {
         batchNumber: batchNumber || null,
         categoryId: categoryId || null,
         imageUrl: imageUrl || null,
+        minStock: minStock ? parseFloat(minStock) : null,
       }
 
       if (pricePerGram) body.pricePerGram = parseFloat(pricePerGram)
@@ -540,16 +544,31 @@ export default function EditProductPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input
-                  id="imageUrl"
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="min-h-[44px]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="imageUrl">Image URL</Label>
+                  <Input
+                    id="imageUrl"
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="min-h-[44px]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="minStock">Min Stock Threshold</Label>
+                  <Input
+                    id="minStock"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={minStock}
+                    onChange={(e) => setMinStock(e.target.value)}
+                    placeholder="e.g. 10"
+                    className="min-h-[44px]"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end pt-4">
