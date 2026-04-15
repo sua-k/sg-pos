@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
+import Decimal from 'decimal.js'
 
 export async function GET(
   request: NextRequest,
@@ -54,6 +55,12 @@ export async function GET(
       vatTHB: transaction.vatTHB.toString(),
       vatRate: transaction.vatRate.toString(),
       totalTHB: transaction.totalTHB.toString(),
+      discountType: transaction.discountType || null,
+      discountValue: transaction.discountValue?.toString() || null,
+      discountTHB: transaction.discountTHB?.toString() || null,
+      originalTotalTHB: transaction.discountTHB
+        ? new Decimal(transaction.totalTHB.toString()).plus(new Decimal(transaction.discountTHB.toString())).toString()
+        : null,
       paymentMethod: transaction.paymentMethod,
       status: transaction.status,
       taxInfo: {

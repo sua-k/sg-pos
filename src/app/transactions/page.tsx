@@ -23,7 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { formatTHB, maskId } from '@/lib/utils/format'
+import { ReceiptPreview, type ReceiptData } from '@/components/pos/ReceiptPreview'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { Search, Receipt, Loader2, ChevronDown } from 'lucide-react'
 
@@ -91,6 +99,25 @@ export default function TransactionsPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [skip, setSkip] = useState(0)
+
+  // Receipt preview
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
+  const [receiptOpen, setReceiptOpen] = useState(false)
+  const [receiptLoadingId, setReceiptLoadingId] = useState<string | null>(null)
+
+  async function handleViewReceipt(e: React.MouseEvent, txId: string) {
+    e.stopPropagation()
+    setReceiptLoadingId(txId)
+    try {
+      const res = await fetch(`/api/transactions/${txId}/receipt`)
+      if (!res.ok) return
+      const data: ReceiptData = await res.json()
+      setReceiptData(data)
+      setReceiptOpen(true)
+    } finally {
+      setReceiptLoadingId(null)
+    }
+  }
 
   // Filters
   const [search, setSearch] = useState('')
@@ -259,6 +286,7 @@ export default function TransactionsPage() {
                     <TableHead>Status</TableHead>
                     <TableHead>Cashier</TableHead>
                     {user?.role === 'admin' && <TableHead>Branch</TableHead>}
+                    <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -290,6 +318,22 @@ export default function TransactionsPage() {
                       {user?.role === 'admin' && (
                         <TableCell className="text-sm">{tx.branch.name}</TableCell>
                       )}
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={receiptLoadingId === tx.id}
+                          onClick={(e) => handleViewReceipt(e, tx.id)}
+                          title="View Receipt"
+                        >
+                          {receiptLoadingId === tx.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Receipt className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -315,6 +359,23 @@ export default function TransactionsPage() {
           </Card>
         )}
       </div>
+      {/* Receipt preview dialog */}
+      <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
+        <DialogContent className="max-w-sm p-4">
+          <DialogHeader>
+            <DialogTitle>Receipt</DialogTitle>
+            <DialogDescription className="sr-only">
+              Receipt preview
+            </DialogDescription>
+          </DialogHeader>
+          {receiptData && (
+            <ReceiptPreview
+              receipt={receiptData}
+              onClose={() => setReceiptOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   )
 }

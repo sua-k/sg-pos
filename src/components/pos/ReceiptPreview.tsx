@@ -34,6 +34,10 @@ export interface ReceiptData {
   vatTHB: string
   vatRate: string
   totalTHB: string
+  discountType: string | null
+  discountValue: string | null
+  discountTHB: string | null
+  originalTotalTHB: string | null
   paymentMethod: string
   status: string
   taxInfo: {
@@ -182,6 +186,22 @@ export function ReceiptPreview({ receipt, onClose, onPrint }: ReceiptPreviewProp
 
           {/* Totals */}
           <div style={{ marginBottom: '4px' }}>
+            {receipt.discountTHB && receipt.originalTotalTHB && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Items Total:</span>
+                  <span>{formatTHB(receipt.originalTotalTHB)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>
+                    Discount{receipt.discountType === 'percentage' && receipt.discountValue
+                      ? ` (${new Decimal(receipt.discountValue).toFixed(0)}%)`
+                      : ''}:
+                  </span>
+                  <span>-{formatTHB(receipt.discountTHB)}</span>
+                </div>
+              </>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Subtotal (ex-VAT):</span>
               <span>{formatTHB(receipt.subtotalTHB)}</span>

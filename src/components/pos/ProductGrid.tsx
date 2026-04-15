@@ -97,6 +97,19 @@ export function ProductGrid({ branchId, onAddToCart }: ProductGridProps) {
       )
     : products
 
+  function getExpiryStatus(expiryDate: string | null): 'expired' | 'expiring-soon' | null {
+    if (!expiryDate) return null
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const expiry = new Date(expiryDate)
+    expiry.setHours(0, 0, 0, 0)
+    if (expiry < today) return 'expired'
+    const sevenDaysFromNow = new Date(today)
+    sevenDaysFromNow.setDate(today.getDate() + 7)
+    if (expiry <= sevenDaysFromNow) return 'expiring-soon'
+    return null
+  }
+
   function handleTileClick(product: ProductData) {
     const priceTHB = Number(product.priceTHB)
     const pricePerGram = product.pricePerGram ? Number(product.pricePerGram) : null
@@ -195,6 +208,9 @@ export function ProductGrid({ branchId, onAddToCart }: ProductGridProps) {
             {filtered.map((product) => {
               const stock = getStock(product)
               const outOfStock = stock <= 0
+              const expiryStatus = getExpiryStatus(product.expiryDate)
+              const isExpired = expiryStatus === 'expired'
+              const isDisabled = outOfStock || isExpired
               const price = product.soldByWeight
                 ? Number(product.pricePerGram ?? 0)
                 : Number(product.priceTHB)
@@ -202,16 +218,28 @@ export function ProductGrid({ branchId, onAddToCart }: ProductGridProps) {
               return (
                 <button
                   key={product.id}
-                  onClick={() => !outOfStock && handleTileClick(product)}
-                  disabled={outOfStock}
+                  onClick={() => !isDisabled && handleTileClick(product)}
+                  disabled={isDisabled}
                   className={cn(
-                    "flex flex-col items-start rounded-lg border p-3 text-left transition-colors",
+                    "relative flex flex-col items-start rounded-lg border p-3 text-left transition-colors",
                     "hover:border-primary hover:bg-accent",
                     "active:scale-[0.98]",
                     "min-h-[100px]",
-                    outOfStock && "cursor-not-allowed opacity-50"
+                    (outOfStock || isExpired) && "cursor-not-allowed opacity-50"
                   )}
                 >
+                  {/* Expiry badge overlay */}
+                  {isExpired && (
+                    <span className="absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-red-500 text-white leading-none">
+                      EXPIRED
+                    </span>
+                  )}
+                  {expiryStatus === 'expiring-soon' && (
+                    <span className="absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-orange-400 text-white leading-none">
+                      EXPIRING SOON
+                    </span>
+                  )}
+
                   <p className="line-clamp-2 text-sm font-medium leading-tight">
                     {product.name}
                   </p>

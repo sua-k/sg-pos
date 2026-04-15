@@ -16,6 +16,7 @@ import {
   Banknote,
   Shield,
   BarChart3,
+  ClipboardList,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -49,6 +50,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Cash Drawers", href: "/cash-drawers", icon: Banknote, roles: ["admin", "manager", "staff"] },
   { label: "Compliance", href: "/compliance", icon: Shield, roles: ["admin", "manager"] },
   { label: "Analytics", href: "/analytics", icon: BarChart3, roles: ["admin", "manager"] },
+  { label: "Daily Report", href: "/reports/daily", icon: ClipboardList, roles: ["admin", "manager"] },
   // Zoho and Reconciliation hidden — re-enable when integrations are ready
   // { label: "Zoho", href: "/zoho", icon: Settings2, roles: ["admin"] },
   // { label: "Reconciliation", href: "/reconciliation", icon: Scale, roles: ["admin"] },

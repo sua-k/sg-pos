@@ -274,7 +274,7 @@ export default function TransactionDetailPage({
                     ) : (
                       <Receipt className="h-4 w-4 mr-1" />
                     )}
-                    View Receipt
+                    Reprint Receipt
                   </Button>
                   {canVoid && !isVoided && (
                     <Button

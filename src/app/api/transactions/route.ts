@@ -82,6 +82,8 @@ interface CheckoutBody {
   items: CheckoutItem[]
   paymentMethod: 'cash' | 'card' | 'transfer'
   prescriptionIds?: string[]
+  discountType?: 'percentage' | 'fixed' | null
+  discountValue?: number | null
 }
 
 export async function POST(request: NextRequest) {
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth()
 
     const body: CheckoutBody = await request.json()
-    const { customerId, branchId, items, paymentMethod, prescriptionIds } = body
+    const { customerId, branchId, items, paymentMethod, prescriptionIds, discountType, discountValue } = body
 
     if (!customerId || !branchId || !items?.length || !paymentMethod) {
       return NextResponse.json(
@@ -214,18 +216,41 @@ export async function POST(request: NextRequest) {
         // 4. Generate receipt number
         const receiptNumber = await generateReceiptNumber(tx, branch.code, branchId)
 
-        // 5. Calculate transaction subtotal
-        const transactionSubtotal = transactionTotal.minus(transactionVat)
+        // 5. Apply discount if provided
+        let discountTHB = new Decimal(0)
+        let finalTotal = transactionTotal
 
-        // 6. Create Transaction + TransactionItems + CostLayerConsumptions
+        if (discountType && discountValue && discountValue > 0) {
+          if (discountType === 'percentage') {
+            discountTHB = transactionTotal.mul(discountValue).div(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+          } else if (discountType === 'fixed') {
+            discountTHB = new Decimal(discountValue).toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+          }
+          // Clamp discount to not exceed grand total
+          if (discountTHB.gt(transactionTotal)) {
+            discountTHB = transactionTotal
+          }
+          finalTotal = transactionTotal.minus(discountTHB)
+        }
+
+        // 6. Recalculate VAT on the post-discount amount
+        const finalVat = finalTotal.mul(7).div(107).toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+        const finalSubtotal = finalTotal.minus(finalVat)
+
+        // 7. Create Transaction + TransactionItems + CostLayerConsumptions
         const transaction = await tx.transaction.create({
           data: {
             customerId,
             userId: user.id,
             branchId,
-            subtotalTHB: transactionSubtotal.toNumber(),
-            vatTHB: transactionVat.toNumber(),
-            totalTHB: transactionTotal.toNumber(),
+            subtotalTHB: finalSubtotal.toNumber(),
+            vatTHB: finalVat.toNumber(),
+            totalTHB: finalTotal.toNumber(),
+            ...(discountType && discountValue ? {
+              discountType,
+              discountValue: discountValue,
+              discountTHB: discountTHB.toNumber(),
+            } : {}),
             paymentMethod: paymentMethod as 'cash' | 'card' | 'transfer',
             receiptNumber,
             ageVerified: true,
@@ -264,7 +289,7 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        // 7. Link prescriptions if provided
+        // 8. Link prescriptions if provided
         if (prescriptionIds && prescriptionIds.length > 0) {
           // Calculate total cannabis weight sold (soldByWeight items only)
           const totalWeightG = processedItems.reduce((sum, pi) => {

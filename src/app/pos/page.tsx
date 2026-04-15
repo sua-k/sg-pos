@@ -8,6 +8,8 @@ import { CustomerEntry, CustomerData } from "@/components/pos/CustomerEntry"
 import { PaymentPanel } from "@/components/pos/PaymentPanel"
 import { ReceiptPreview, type ReceiptData } from "@/components/pos/ReceiptPreview"
 import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -30,6 +32,8 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType | null>(null)
   const [linkedPrescriptions, setLinkedPrescriptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | null>(null)
+  const [discountValue, setDiscountValue] = useState<string>('')
 
   // Post-checkout receipt
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
@@ -146,6 +150,10 @@ export default function POSPage() {
           items: apiItems,
           paymentMethod,
           prescriptionIds: linkedPrescriptions,
+          ...(discountType && discountValue ? {
+            discountType,
+            discountValue: parseFloat(discountValue),
+          } : {}),
         }),
       })
 
@@ -162,6 +170,8 @@ export default function POSPage() {
       setCustomer(null)
       setPaymentMethod(null)
       setLinkedPrescriptions([])
+      setDiscountType(null)
+      setDiscountValue('')
 
       toast.success(`Sale complete! Receipt: ${transaction.receiptNumber}`, {
         duration: 5000,
@@ -225,7 +235,52 @@ export default function POSPage() {
             items={cartItems}
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
+            discountType={discountType}
+            discountValue={discountValue ? parseFloat(discountValue) : undefined}
           />
+
+          <Separator className="my-3" />
+
+          {/* Discount Section */}
+          <div className="space-y-2">
+            <div className="flex gap-1">
+              <Button
+                variant={discountType === null ? "default" : "outline"}
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => { setDiscountType(null); setDiscountValue('') }}
+              >
+                No Discount
+              </Button>
+              <Button
+                variant={discountType === 'percentage' ? "default" : "outline"}
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => setDiscountType('percentage')}
+              >
+                % Off
+              </Button>
+              <Button
+                variant={discountType === 'fixed' ? "default" : "outline"}
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => setDiscountType('fixed')}
+              >
+                &#x0E3F; Off
+              </Button>
+            </div>
+            {discountType && (
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                placeholder={discountType === 'percentage' ? 'Enter %' : 'Enter amount (THB)'}
+                value={discountValue}
+                onChange={(e) => setDiscountValue(e.target.value)}
+                className="h-8 text-sm"
+              />
+            )}
+          </div>
 
           <Separator className="my-3" />
 

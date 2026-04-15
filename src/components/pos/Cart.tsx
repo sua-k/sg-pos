@@ -19,6 +19,8 @@ interface CartProps {
   items: CartItem[]
   onUpdateQuantity: (productId: string, delta: number) => void
   onRemoveItem: (productId: string) => void
+  discountType?: 'percentage' | 'fixed' | null
+  discountValue?: number
 }
 
 function formatCurrency(amount: number): string {
@@ -28,10 +30,24 @@ function formatCurrency(amount: number): string {
   })}`
 }
 
-export function Cart({ items, onUpdateQuantity, onRemoveItem }: CartProps) {
+export function Cart({ items, onUpdateQuantity, onRemoveItem, discountType, discountValue }: CartProps) {
   const grandTotal = items.reduce((sum, item) => sum + item.lineTotal, 0)
-  const vatAmount = grandTotal * 7 / 107
-  const subtotal = grandTotal - vatAmount
+
+  // Discount calculation
+  let discountTHB = 0
+  if (discountType && discountValue && discountValue > 0) {
+    if (discountType === 'percentage') {
+      discountTHB = Math.round(grandTotal * discountValue / 100 * 100) / 100
+    } else {
+      discountTHB = Math.round(discountValue * 100) / 100
+    }
+    if (discountTHB > grandTotal) discountTHB = grandTotal
+  }
+
+  const afterDiscount = grandTotal - discountTHB
+  const vatAmount = afterDiscount * 7 / 107
+  const subtotal = afterDiscount - vatAmount
+  const hasDiscount = discountTHB > 0
 
   if (items.length === 0) {
     return (
@@ -107,6 +123,24 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem }: CartProps) {
       <div className="mt-3 space-y-2">
         <Separator />
         <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Items Total</span>
+          <span>{formatCurrency(grandTotal)}</span>
+        </div>
+        {hasDiscount && (
+          <>
+            <div className="flex justify-between text-sm text-red-600">
+              <span>
+                Discount{discountType === 'percentage' ? ` (${discountValue}%)` : ''}
+              </span>
+              <span>-{formatCurrency(discountTHB)}</span>
+            </div>
+            <div className="flex justify-between text-sm font-medium">
+              <span>After Discount</span>
+              <span>{formatCurrency(afterDiscount)}</span>
+            </div>
+          </>
+        )}
+        <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Subtotal (ex-VAT)</span>
           <span>{formatCurrency(subtotal)}</span>
         </div>
@@ -117,7 +151,7 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem }: CartProps) {
         <Separator />
         <div className="flex justify-between text-lg font-bold">
           <span>Grand Total</span>
-          <span>{formatCurrency(grandTotal)}</span>
+          <span>{formatCurrency(afterDiscount)}</span>
         </div>
       </div>
     </div>
