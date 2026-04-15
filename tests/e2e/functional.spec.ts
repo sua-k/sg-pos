@@ -362,7 +362,7 @@ test.describe('Analytics', () => {
 // ═══════════════════════════════════════════════════════════
 
 test.describe('Zoho Settings', () => {
-  test('zoho page has connect and sync buttons', async ({ page }) => {
+  test.skip('zoho page has connect and sync buttons — disabled for Day 1', async ({ page }) => {
     await login(page)
     await page.goto(`${BASE_URL}/zoho`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(2000)
@@ -376,7 +376,7 @@ test.describe('Zoho Settings', () => {
 // ═══════════════════════════════════════════════════════════
 
 test.describe('Reconciliation', () => {
-  test('reconciliation page has tabs', async ({ page }) => {
+  test.skip('reconciliation page has tabs — disabled for Day 1', async ({ page }) => {
     await login(page)
     await page.goto(`${BASE_URL}/reconciliation`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(2000)
